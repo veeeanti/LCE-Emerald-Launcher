@@ -39,6 +39,7 @@ export interface AppConfig {
   musicVol?: number;
   sfxVol?: number;
   legacyMode?: boolean;
+  mangohudEnabled?: boolean;
 }
 
 export interface ThemePalette {
@@ -234,5 +235,53 @@ export class TauriService {
     panoramaBase64: string
   ): Promise<void> {
     return invoke("add_to_steam", { instanceId, name, titleBase64, panoramaBase64 });
+  }
+
+  static async stunDiscover(): Promise<{ ip: string; port: number }> {
+    return invoke("stun_discover");
+  }
+
+  static async startDirectProxy(targetIp: string, targetPort: number): Promise<number> {
+    return invoke("start_direct_proxy", { targetIp, targetPort });
+  }
+
+  static async startRelayProxy(apiBaseUrl: string, accessToken: string, sessionId: string): Promise<number> {
+    return invoke("start_relay_proxy", { apiBaseUrl, accessToken, sessionId });
+  }
+
+  static async startHostRelay(apiBaseUrl: string, accessToken: string, sessionId: string, gamePort: number): Promise<void> {
+    return invoke("start_host_relay", { apiBaseUrl, accessToken, sessionId, gamePort });
+  }
+
+  static async stopProxy(): Promise<void> {
+    return invoke("stop_proxy");
+  }
+
+  static async joinGame(
+    apiBaseUrl: string,
+    accessToken: string,
+    hostIp: string,
+    hostPort: number,
+    sessionId: string,
+    instanceId: string,
+  ): Promise<void> {
+    return invoke("join_game", { apiBaseUrl, accessToken, hostIp, hostPort, sessionId, instanceId });
+  }
+
+  static async httpProxyRequest(
+    method: string,
+    url: string,
+    body: string | null,
+    headers: Record<string, string>
+  ): Promise<{ status: number; body: string }> {
+    return invoke("http_proxy_request", { method, url, body, headers });
+  }
+
+  static async getInstancePath(instanceId: string): Promise<string> {
+    return invoke("get_instance_path", { instanceId });
+  }
+
+  static async readScreenshotAsDataUrl(path: string): Promise<string> {
+    return invoke("read_screenshot_as_data_url", { path });
   }
 }
