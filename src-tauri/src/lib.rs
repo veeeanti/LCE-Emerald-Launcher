@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use std::fs;
 use std::io::Write;
-use std::net::UdpSocket;
 use std::path::PathBuf;
 use std::process::Command;
 use steam_shortcuts_util::{Shortcut, parse_shortcuts, shortcuts_to_bytes};
@@ -934,80 +933,6 @@ async fn download_and_install(app: AppHandle, state: State<'_, DownloadState>, u
     Ok("Success".into())
 }
 
-#[repr(C, packed)]
-struct LanBroadcastPacket {
-    magic: u32,
-    net_version: u16,
-    game_port: u16,
-    host_name: [u16; 32],
-    player_count: u8,
-    max_players: u8,
-    game_host_settings: u32,
-    texture_pack_parent_id: u32,
-    sub_texture_pack_id: u8,
-    is_joinable: u8,
-}
-
-struct LanServicesGuard(CancellationToken);
-impl Drop for LanServicesGuard {
-    fn drop(&mut self) {
-        self.0.cancel();
-    }
-}
-
-fn start_lan_broadcast(servers: &[(McServer, u16)], cancel: CancellationToken) {
-    for (server, broadcast_port) in servers {
-        let cancel = cancel.clone();
-        let name = server.name.clone();
-        let port = *broadcast_port;
-        std::thread::spawn(move || {
-            let socket = match UdpSocket::bind("0.0.0.0:0") {
-                Ok(s) => s,
-                Err(e) => {
-                    eprintln!("[Emerald] LAN broadcast socket bind failed: {e}");
-                    return;
-                }
-            };
-            if let Err(e) = socket.set_broadcast(true) {
-                eprintln!("[Emerald] LAN broadcast set_broadcast failed: {e}");
-                return;
-            }
-
-            let mut host_name = [0u16; 32];
-            for (i, c) in name.encode_utf16().take(31).enumerate() {
-                host_name[i] = c;
-            }
-
-            let packet = LanBroadcastPacket {
-                magic: 0x4D434C4E,
-                net_version: 170,
-                game_port: port,
-                host_name,
-                player_count: 0,
-                max_players: 8,
-                game_host_settings: 0,
-                texture_pack_parent_id: 0,
-                sub_texture_pack_id: 0,
-                is_joinable: 1,
-            };
-
-            let packet_bytes = unsafe {
-                std::slice::from_raw_parts(
-                    &packet as *const LanBroadcastPacket as *const u8,
-                    std::mem::size_of::<LanBroadcastPacket>(),
-                )
-            };
-
-            while !cancel.is_cancelled() {
-                if let Err(e) = socket.send_to(packet_bytes, "255.255.255.255:25566") {
-                    eprintln!("[Emerald] LAN broadcast send failed: {e}");
-                }
-                std::thread::sleep(std::time::Duration::from_secs(1));
-            }
-        });
-    }
-}
-
 fn perform_dlc_sync(app: &AppHandle, instance_dir: &PathBuf) -> Result<(), String> {
     let mut dlc_src = None;
     let root = get_app_dir(app);
@@ -1353,21 +1278,14 @@ async fn check_game_update(app: AppHandle, instance_id: String, url: String) -> 
 
 #[tauri::command]
 #[allow(non_snake_case)]
-async fn launch_game(app: AppHandle, state: State<'_, GameState>, instance_id: String, servers: Vec<McServer>) -> Result<(), String> {
+async fn launch_game(app: AppHandle, state: State<'_, GameState>, instance_id: String, mut servers: Vec<McServer>) -> Result<(), String> {
     perform_instance_sync(&app, &instance_id).await?;
     let working_dir = get_instance_working_dir(&app, &instance_id);
     let config = load_config(app.clone());
-    let _lan_services: Option<LanServicesGuard> = if !servers.is_empty() {
-        let cancel = CancellationToken::new();
-        let servers_with_ports: Vec<(McServer, u16)> = servers
-            .iter()
-            .map(|s| (s.clone(), s.port))
-            .collect();
-        start_lan_broadcast(&servers_with_ports, cancel.clone());
-        Some(LanServicesGuard(cancel))
-    } else {
-        None
-    };
+    let lce_live = McServer { name: "LCELive Game".into(), ip: "127.0.0.1".into(), port: 61000 };
+    if !servers.iter().any(|s| s.ip == lce_live.ip && s.port == lce_live.port) {
+        servers.push(lce_live);
+    }
     let game_exe = working_dir.join("Minecraft.Client.exe");
     if !game_exe.exists() {
         return Err("Game executable not found in instance folder.".into());
@@ -1922,7 +1840,7 @@ async fn http_proxy_request(method: String, url: String, body: Option<String>, h
     let res = req.send().await.map_err(|e| e.to_string())?;
     let status = res.status().as_u16();
     let text = res.text().await.map_err(|e| e.to_string())?;
-    
+
     Ok(HttpResponse {
         status,
         body: text,
@@ -2037,7 +1955,7 @@ async fn run_relay_proxy(
         .map_err(|e| format!("Relay WS connect failed: {}", e))?;
     eprintln!("[Emerald] Joiner relay: WS connected");
 
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:0")
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:61000")
         .await
         .map_err(|e| format!("Bind failed: {}", e))?;
     let local_port = listener.local_addr().map_err(|e| e.to_string())?.port();
