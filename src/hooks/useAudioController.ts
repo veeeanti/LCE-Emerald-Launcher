@@ -191,25 +191,30 @@ export function useAudioController({
     if (!audioContextRef.current) {
       audioContextRef.current = new AudioContext();
     }
-    if (audioContextRef.current.state === "suspended") {
-      audioContextRef.current.resume();
-    }
     return audioContextRef.current;
   }, []);
+
+  const ensureAudioContextReady = useCallback(async () => {
+    const ctx = getAudioContext();
+    if (ctx.state === "suspended") {
+      await ctx.resume();
+    }
+    return ctx;
+  }, [getAudioContext]);
 
   const loadAudioBuffer = useCallback(
     async (url: string): Promise<AudioBuffer | undefined> => {
       try {
         const response = await fetch(url);
         const arrayBuffer = await response.arrayBuffer();
-        const ctx = getAudioContext();
+        const ctx = await ensureAudioContextReady();
         return await ctx.decodeAudioData(arrayBuffer);
       } catch (error) {
         console.error("Failed to load audio:", url, error);
         return undefined;
       }
     },
-    [getAudioContext],
+    [ensureAudioContextReady],
   );
 
   const playSfx = useCallback(
@@ -224,7 +229,7 @@ export function useAudioController({
       }
 
       if (buffer) {
-        const ctx = getAudioContext();
+        const ctx = await ensureAudioContextReady();
         const source = ctx.createBufferSource();
         const gainNode = ctx.createGain();
         source.buffer = buffer;
@@ -234,7 +239,7 @@ export function useAudioController({
         source.start();
       }
     },
-    [sfxVol, loadAudioBuffer, getAudioContext],
+    [sfxVol, loadAudioBuffer, ensureAudioContextReady],
   );
 
   const playPressSound = useCallback(() => playSfx("press.wav"), [playSfx]);
@@ -256,9 +261,10 @@ export function useAudioController({
   }, []);
 
   const playMusicBuffer = useCallback(
-    (buffer: AudioBuffer, startTime: number = 0) => {
+    async (buffer: AudioBuffer, startTime: number = 0) => {
+      const ctx = await ensureAudioContextReady();
       stopMusic();
-      const ctx = getAudioContext();
+
       const source = ctx.createBufferSource();
       const gainNode = ctx.createGain();
 
@@ -297,7 +303,7 @@ export function useAudioController({
         }
       };
     },
-    [stopMusic, getAudioContext],
+    [stopMusic, ensureAudioContextReady],
   );
 
   const fadeOutMusic = useCallback(
@@ -336,9 +342,10 @@ export function useAudioController({
   );
 
   const fadeInMusic = useCallback(
-    (buffer: AudioBuffer, targetVolume: number, duration: number = 500) => {
+    async (buffer: AudioBuffer, targetVolume: number, duration: number = 500) => {
+      const ctx = await ensureAudioContextReady();
       stopMusic();
-      const ctx = getAudioContext();
+
       const source = ctx.createBufferSource();
       const gainNode = ctx.createGain();
 
@@ -377,7 +384,7 @@ export function useAudioController({
         }
       };
     },
-    [stopMusic, getAudioContext],
+    [stopMusic, ensureAudioContextReady],
   );
 
   const cycleSplash = useCallback(() => {
@@ -401,7 +408,7 @@ export function useAudioController({
         }
       }
       if (buffer) {
-        playMusicBuffer(buffer);
+        await playMusicBuffer(buffer);
       }
     };
 
@@ -424,7 +431,7 @@ export function useAudioController({
         }
       }
       if (buffer) {
-        fadeInMusic(buffer, musicVol / 100, 500);
+        await fadeInMusic(buffer, musicVol / 100, 500);
       }
     };
 
@@ -463,7 +470,7 @@ export function useAudioController({
           }
         }
         if (buffer) {
-          fadeInMusic(buffer, musicVol / 100, 500);
+          await fadeInMusic(buffer, musicVol / 100, 500);
         }
       };
 
