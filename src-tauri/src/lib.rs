@@ -888,11 +888,14 @@ async fn download_and_install(app: AppHandle, state: State<'_, DownloadState>, u
 
     #[cfg(not(target_os = "linux"))]
     {
-        let status = Command::new("tar")
-            .args(["-xf", zip_path.to_str().unwrap(), "-C", instance_dir.to_str().unwrap()])
-            .status()
-            .map_err(|e| e.to_string())?;
-
+        let mut cmd = Command::new("tar");
+        cmd.args(["-xf", zip_path.to_str().unwrap(), "-C", instance_dir.to_str().unwrap()]);
+        #[cfg(target_os = "windows")]
+        {
+            use std::os::windows::process::CommandExt;
+            cmd.creation_flags(0x08000000); //neo: this weird flag (named CREATE_NO_WINDOW btw) is for hiding the cmd.exe window
+        }
+        let status = cmd.status().map_err(|e| e.to_string())?;
         if !status.success() {
             return Err("Extraction failed".into());
         }
