@@ -11,6 +11,7 @@ use crate::platform::linux;
 use crate::state::GameState;
 use crate::types::McServer;
 use crate::util;
+use crate::workshop_server;
 #[tauri::command]
 #[allow(non_snake_case)]
 pub async fn launch_game(
@@ -35,6 +36,14 @@ pub async fn launch_game(
         }
     }
     ensure_server_list(&working_dir, servers);
+
+    let ws_cancel = workshop_server::start().await;
+    let _ws_guard = workshop_server::Guard::new(ws_cancel.clone());
+    {
+        let mut lock = state.workshop_cancel.lock().await;
+        *lock = Some(ws_cancel);
+    }
+
     let game_exe = working_dir.join("Minecraft.Client.exe");
     if !game_exe.exists() {
         return Err("Game executable not found in instance folder.".into());
@@ -296,6 +305,12 @@ pub async fn stop_game(
         #[cfg(unix)]
         linux::kill_process_tree(&app, &instance_id);
         let _ = child.kill().await;
+    }
+    drop(lock);
+
+    let mut lock = state.workshop_cancel.lock().await;
+    if let Some(cancel) = lock.take() {
+        cancel.cancel();
     }
     Ok(())
 }

@@ -61,6 +61,11 @@ const BASE_EDITIONS = [
 
 const PARTNERSHIP_SERVERS = [
   {
+    name: "Emerald Java Server",
+    ip: "127.0.0.1",
+    port: 25656,
+  },
+  {
     name: "Kowhaifans Clubhouse",
     ip: "lce.kowhaifan.net",
     port: 25565,

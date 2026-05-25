@@ -297,4 +297,23 @@ export class TauriService {
   ): Promise<string> {
     return invoke("import_world", { inputPath, outputPath });
   }
+
+  static async bridgeStart(
+    listenAddress: string,
+    port: number,
+    remoteHost: string,
+    remotePort: number,
+    authType: string,
+    remoteProtocolVersion: number,
+  ): Promise<string> {
+    return invoke("bridge_start", { listenAddress, port, remoteHost, remotePort, authType, remoteProtocolVersion });
+  }
+
+  static async bridgeStop(): Promise<string> {
+    return invoke("bridge_stop");
+  }
+
+  static async bridgeStatus(): Promise<string> {
+    return invoke("bridge_status");
+  }
 }

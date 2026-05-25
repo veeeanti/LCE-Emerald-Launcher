@@ -8,6 +8,7 @@ pub struct DownloadState {
 
 pub struct GameState {
     pub child: Arc<Mutex<Option<tokio::process::Child>>>,
+    pub workshop_cancel: Arc<Mutex<Option<CancellationToken>>>,
 }
 
 pub struct ProxyGuard {

@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState, memo } from 'react';
+import { useEffect, useRef, useState, memo, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { motion } from 'framer-motion';
 import * as THREE from 'three';
-import { useLocalStorage } from '../../hooks/useLocalStorage';
 import { useConfig } from '../../context/LauncherContext';
+import { TauriService } from '../../services/TauriService';
 
 type UVSet = Record<string, number[]>;
 
@@ -18,15 +19,66 @@ interface SkinViewerProps {
   onNavigateRight: () => void;
 }
 
-const SkinViewer = memo(function SkinViewer({ username, setUsername, playPressSound, skinUrl, capeUrl, setSkinUrl, setActiveView, isFocusedSection, onNavigateRight }: SkinViewerProps) {
+const SkinViewer = memo(function SkinViewer({ username, setUsername, playPressSound, skinUrl, capeUrl, setActiveView, isFocusedSection, onNavigateRight }: SkinViewerProps) {
   const mountRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [focusIndex, setFocusIndex] = useState(0);
   const { legacyMode } = useConfig();
-  const [showLayers, setShowLayers] = useLocalStorage('lce-show-layers', true);
   const overlaysRef = useRef<THREE.Mesh[]>([]);
   const capeRef = useRef<THREE.Group | null>(null);
   const requestRenderRef = useRef<(() => void) | null>(null);
+
+  const [showBridgeMenu, setShowBridgeMenu] = useState(false);
+  const [bridgeActive, setBridgeActive] = useState(false);
+  const [bridgeStarting, setBridgeStarting] = useState(false);
+  const [bridgeRemoteHost, setBridgeRemoteHost] = useState("127.0.0.1");
+  const [bridgeRemotePort, setBridgeRemotePort] = useState("25565");
+  const [bridgeProtocolVersion, setBridgeProtocolVersion] = useState(767);
+  const [bridgeAuthType, setBridgeAuthType] = useState("offline");
+  const [msaCode, setMsaCode] = useState("");
+
+  useEffect(() => {
+    let unlisten: () => void;
+    (async () => {
+      const { listen } = await import("@tauri-apps/api/event");
+      const u = await listen<string>("lcebridge-msa-code", (e) => {
+        setMsaCode(e.payload);
+      });
+      unlisten = u;
+    })();
+    return () => { unlisten?.(); };
+  }, []);
+
+  const toggleBridge = useCallback(async () => {
+    if (bridgeActive) {
+      await TauriService.bridgeStop();
+      setBridgeActive(false);
+    } else {
+      setBridgeStarting(true);
+      setMsaCode("");
+      try {
+        await TauriService.bridgeStart(
+          "0.0.0.0", 25656,
+          bridgeRemoteHost,
+          parseInt(bridgeRemotePort) || 25565,
+          bridgeAuthType,
+          bridgeProtocolVersion,
+        );
+        setBridgeActive(true);
+      } catch (e) {
+        console.error("Bridge start failed:", e);
+      } finally {
+        setBridgeStarting(false);
+      }
+    }
+  }, [bridgeActive, bridgeRemoteHost, bridgeRemotePort, bridgeProtocolVersion, bridgeAuthType]);
+
+  useEffect(() => {
+    TauriService.bridgeStatus().then((s) => {
+      setBridgeActive(s === "running");
+    }).catch(() => {});
+  }, []);
+
   useEffect(() => {
     if (!mountRef.current) return;
     const width = 260;
@@ -68,12 +120,12 @@ const SkinViewer = memo(function SkinViewer({ username, setUsername, playPressSo
         const getMats = (uvSet: UVSet) => {
           const flipX = isLegacyMirror;
           return [
-            createFaceMaterial(swapMats ? uvSet.right[0] : uvSet.left[0], uvSet.left[1], uvSet.left[2], uvSet.left[3], flipX),     // +x (L)
-            createFaceMaterial(swapMats ? uvSet.left[0] : uvSet.right[0], uvSet.right[1], uvSet.right[2], uvSet.right[3], flipX),   // -x (R)
-            createFaceMaterial(uvSet.top[0], uvSet.top[1], uvSet.top[2], uvSet.top[3], flipX, true),                           // +y (T)
-            createFaceMaterial(uvSet.bottom[0], uvSet.bottom[1], uvSet.bottom[2], uvSet.bottom[3], flipX, true),                        // -y (B)
-            createFaceMaterial(uvSet.front[0], uvSet.front[1], uvSet.front[2], uvSet.front[3], flipX),                        // +z (F)
-            createFaceMaterial(uvSet.back[0], uvSet.back[1], uvSet.back[2], uvSet.back[3], !flipX)                           // -z (B)
+            createFaceMaterial(swapMats ? uvSet.right[0] : uvSet.left[0], uvSet.left[1], uvSet.left[2], uvSet.left[3], flipX),
+            createFaceMaterial(swapMats ? uvSet.left[0] : uvSet.right[0], uvSet.right[1], uvSet.right[2], uvSet.right[3], flipX),
+            createFaceMaterial(uvSet.top[0], uvSet.top[1], uvSet.top[2], uvSet.top[3], flipX, true),
+            createFaceMaterial(uvSet.bottom[0], uvSet.bottom[1], uvSet.bottom[2], uvSet.bottom[3], flipX, true),
+            createFaceMaterial(uvSet.front[0], uvSet.front[1], uvSet.front[2], uvSet.front[3], flipX),
+            createFaceMaterial(uvSet.back[0], uvSet.back[1], uvSet.back[2], uvSet.back[3], !flipX)
           ];
         };
 
@@ -82,7 +134,7 @@ const SkinViewer = memo(function SkinViewer({ username, setUsername, playPressSo
         if (overlayUv) {
           const oGeo = new THREE.BoxGeometry(w + 0.5, h + 0.5, d + 0.5);
           const oMesh = new THREE.Mesh(oGeo, getMats(overlayUv));
-          oMesh.visible = showLayers;
+          oMesh.visible = true;
           overlaysRef.current.push(oMesh);
           group.add(oMesh);
         }
@@ -209,19 +261,16 @@ const SkinViewer = memo(function SkinViewer({ username, setUsername, playPressSo
   }, [skinUrl, capeUrl]);
 
   useEffect(() => {
-    overlaysRef.current.forEach(overlay => {
-      overlay.visible = showLayers;
-    });
-    requestRenderRef.current?.();
-  }, [showLayers]);
-
-  useEffect(() => {
     if (!isFocusedSection) {
       setFocusIndex(legacyMode ? 1 : 0);
       return;
     }
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (showBridgeMenu) {
+        if (e.key === "Escape") setShowBridgeMenu(false);
+        return;
+      }
       if (document.activeElement?.tagName === 'INPUT') return;
 
       if (e.key === 'ArrowRight') {
@@ -232,17 +281,9 @@ const SkinViewer = memo(function SkinViewer({ username, setUsername, playPressSo
         if (legacyMode) return;
         if (focusIndex > 1 && focusIndex <= 4) setFocusIndex(prev => prev - 1);
       } else if (e.key === 'ArrowDown') {
-        if (legacyMode) {
-          setFocusIndex(prev => (prev < 4 ? prev + 1 : prev));
-        } else {
-          setFocusIndex(prev => (prev < 4 ? prev + 1 : prev));
-        }
+        setFocusIndex(prev => (prev < 4 ? prev + 1 : prev));
       } else if (e.key === 'ArrowUp') {
-        if (legacyMode) {
-          return;
-        } else {
-          setFocusIndex(prev => (prev > 0 ? prev - 1 : prev));
-        }
+        setFocusIndex(prev => (prev > 0 ? prev - 1 : prev));
       } else if (e.key === 'Enter') {
         if (focusIndex === 0) {
           (containerRef.current?.querySelector('input') as HTMLElement)?.focus();
@@ -251,14 +292,11 @@ const SkinViewer = memo(function SkinViewer({ username, setUsername, playPressSo
           setActiveView('skins');
         } else if (focusIndex === 2) {
           playPressSound();
-          setShowLayers(!showLayers);
+          setActiveView('screenshots');
         } else if (focusIndex === 3) {
           playPressSound();
-          setSkinUrl('/images/Default.png');
+          setShowBridgeMenu(true);
         } else if (focusIndex === 4) {
-          playPressSound();
-          setActiveView('screenshots');
-        } else if (focusIndex === 5) {
           playPressSound();
           setActiveView('lcelive');
         }
@@ -267,7 +305,7 @@ const SkinViewer = memo(function SkinViewer({ username, setUsername, playPressSo
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isFocusedSection, focusIndex, onNavigateRight, playPressSound, setActiveView, setShowLayers, showLayers, setSkinUrl, legacyMode]);
+  }, [isFocusedSection, focusIndex, onNavigateRight, playPressSound, setActiveView, legacyMode, showBridgeMenu]);
 
   useEffect(() => {
     if (isFocusedSection) {
@@ -317,51 +355,178 @@ const SkinViewer = memo(function SkinViewer({ username, setUsername, playPressSo
         >
           <img src="/images/Change_Skin_Icon.png" alt="Skin" className="w-8 h-8 object-contain" style={{ imageRendering: 'pixelated' }} />
         </button>
-        {!legacyMode && (
-          <button
-            data-focus="2" tabIndex={0}
-            onMouseEnter={() => isFocusedSection && setFocusIndex(2)}
-            onClick={() => { playPressSound(); setShowLayers(!showLayers); }}
-            className={`mc-sq-btn w-12 h-12 flex items-center justify-center outline-none border-none transition-all ${isFocusedSection && focusIndex === 2 ? 'scale-110' : ''}`}
-            style={isFocusedSection && focusIndex === 2 ? { backgroundImage: "url('/images/Button_Square_Highlighted.png')" } : {}}
-            title="Toggle Layers"
-          >
-            <img src="/images/Layer_Icon.png" alt="Layers" className="w-8 h-8 object-contain" style={{ imageRendering: 'pixelated' }} />
-          </button>
-        )}
-        {!legacyMode && (
-          <button
-            data-focus="3" tabIndex={0}
-            onMouseEnter={() => isFocusedSection && setFocusIndex(3)}
-            onClick={() => { playPressSound(); setSkinUrl('/images/Default.png'); }}
-            className={`mc-sq-btn w-12 h-12 flex items-center justify-center outline-none border-none transition-all ${isFocusedSection && focusIndex === 3 ? 'scale-110' : ''}`}
-            style={isFocusedSection && focusIndex === 3 ? { backgroundImage: "url('/images/Button_Square_Highlighted.png')" } : {}}
-            title="Reset to Default"
-          >
-            <img src="/images/Trash_Bin_Icon.png" alt="Delete" className="w-8 h-8 object-contain brightness-200" style={{ imageRendering: 'pixelated' }} />
-          </button>
-        )}
         <button
-          data-focus="4" tabIndex={0}
-          onMouseEnter={() => isFocusedSection && setFocusIndex(4)}
+          data-focus="2" tabIndex={0}
+          onMouseEnter={() => isFocusedSection && setFocusIndex(2)}
           onClick={() => { playPressSound(); setActiveView('screenshots'); }}
-          className={`mc-sq-btn w-12 h-12 flex items-center justify-center outline-none border-none transition-all ${isFocusedSection && focusIndex === 4 ? 'scale-110' : ''}`}
-          style={isFocusedSection && focusIndex === 4 ? { backgroundImage: "url('/images/Button_Square_Highlighted.png')" } : {}}
+          className={`mc-sq-btn w-12 h-12 flex items-center justify-center outline-none border-none transition-all ${isFocusedSection && focusIndex === 2 ? 'scale-110' : ''}`}
+          style={isFocusedSection && focusIndex === 2 ? { backgroundImage: "url('/images/Button_Square_Highlighted.png')" } : {}}
           title="Screenshots"
         >
           <img src="/images/Screenshots_Icon.png" alt="Screenshots" className="w-8 h-8 object-contain" style={{ imageRendering: 'pixelated' }} />
         </button>
         <button
-          data-focus="5" tabIndex={0}
-          onMouseEnter={() => isFocusedSection && setFocusIndex(5)}
+          data-focus="3" tabIndex={0}
+          onMouseEnter={() => isFocusedSection && setFocusIndex(3)}
+          onClick={() => { playPressSound(); setShowBridgeMenu(true); }}
+          className={`mc-sq-btn w-12 h-12 flex items-center justify-center outline-none border-none transition-all ${isFocusedSection && focusIndex === 3 ? 'scale-110' : ''}`}
+          style={isFocusedSection && focusIndex === 3 ? { backgroundImage: "url('/images/Button_Square_Highlighted.png')" } : {}}
+          title="LCEBridge"
+        >
+          <img src="/images/sga_w.png" alt="Bridge" className="w-8 h-8 object-contain" style={{ imageRendering: 'pixelated' }} />
+        </button>
+        <button
+          data-focus="4" tabIndex={0}
+          onMouseEnter={() => isFocusedSection && setFocusIndex(4)}
           onClick={() => { playPressSound(); setActiveView('lcelive'); }}
-          className={`mc-sq-btn w-12 h-12 flex items-center justify-center outline-none border-none transition-all ${isFocusedSection && focusIndex === 5 ? 'scale-110' : ''}`}
-          style={isFocusedSection && focusIndex === 5 ? { backgroundImage: "url('/images/Button_Square_Highlighted.png')" } : {}}
+          className={`mc-sq-btn w-12 h-12 flex items-center justify-center outline-none border-none transition-all ${isFocusedSection && focusIndex === 4 ? 'scale-110' : ''}`}
+          style={isFocusedSection && focusIndex === 4 ? { backgroundImage: "url('/images/Button_Square_Highlighted.png')" } : {}}
           title="LCELive"
         >
           <img src="/images/friends.png" alt="LCELive" className="w-8 h-8 object-contain" style={{ imageRendering: 'pixelated' }} />
         </button>
       </div>
+
+      {showBridgeMenu && createPortal(
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 w-screen h-screen z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md"
+          onClick={() => setShowBridgeMenu(false)}
+        >
+          <div
+            className="relative w-[420px] p-6 flex flex-col items-center"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              backgroundImage: "url('/images/frame_background.png')",
+              backgroundSize: "100% 100%",
+              imageRendering: "pixelated",
+            }}
+          >
+            <h2 className="text-[#FFFF55] text-2xl mc-text-shadow mb-4 border-b-2 border-[#373737] pb-2 w-full text-center uppercase">
+              LCEBridge
+            </h2>
+
+            <div className="w-full flex items-center gap-3 px-4 py-3 bg-black/30 mb-5">
+              <div className={`w-3 h-3 rounded-full shrink-0 ${bridgeActive ? "bg-green-400" : "bg-gray-500"}`} />
+              <span className="text-white text-sm mc-text-shadow">
+                {msaCode ? "Authenticating..." : bridgeActive ? "Running on port 25656" : "Stopped"}
+              </span>
+            </div>
+
+            {msaCode && (
+              <div className="w-full mb-5 space-y-2">
+                <label className="text-gray-400 text-sm mc-text-shadow uppercase tracking-widest mb-1 block">
+                  Microsoft Login Code
+                </label>
+                <div className="w-full bg-black/20 border-4 border-[#555] text-white p-3 text-lg mc-text-shadow tracking-[0.2em] font-bold">
+                  {msaCode.split("|")[0]}
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-500 text-xs mc-text-shadow">
+                    Enter code at microsoft.com/link
+                  </span>
+                  <button
+                    onClick={() => TauriService.openUrl(msaCode.split("|")[1] || "https://microsoft.com/link")}
+                    className="h-8 px-4 flex items-center justify-center text-xs text-[#FFFF55] mc-text-shadow outline-none border-none cursor-pointer"
+                    style={{
+                      backgroundImage: "url('/images/button_highlighted.png')",
+                      backgroundSize: "100% 100%",
+                      imageRendering: "pixelated",
+                    }}
+                  >
+                    Open in Browser
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div className="w-full mb-5 space-y-4">
+              <div>
+                <label className="text-gray-400 text-sm mc-text-shadow uppercase tracking-widest mb-1 block">Java Server IP</label>
+                <input type="text" value={bridgeRemoteHost}
+                  onChange={(e) => setBridgeRemoteHost(e.target.value)}
+                  className="w-full bg-black/20 border-4 border-[#555] text-white p-3 text-lg outline-none focus:border-[#FFFF55] transition-colors mc-text-shadow"
+                  disabled={bridgeActive}
+                />
+              </div>
+              <div>
+                <label className="text-gray-400 text-sm mc-text-shadow uppercase tracking-widest mb-1 block">Java Server Port</label>
+                <input type="number" value={bridgeRemotePort}
+                  onChange={(e) => setBridgeRemotePort(e.target.value)}
+                  className="w-full bg-black/20 border-4 border-[#555] text-white p-3 text-lg outline-none focus:border-[#FFFF55] transition-colors mc-text-shadow"
+                  disabled={bridgeActive}
+                />
+              </div>
+              <div>
+                <label className="text-gray-400 text-sm mc-text-shadow uppercase tracking-widest mb-1 block">Protocol Version</label>
+                <input type="number" value={bridgeProtocolVersion}
+                  onChange={(e) => setBridgeProtocolVersion(parseInt(e.target.value) || 767)}
+                  className="w-full bg-black/20 border-4 border-[#555] text-white p-3 text-lg outline-none focus:border-[#FFFF55] transition-colors mc-text-shadow"
+                  disabled={bridgeActive}
+                />
+              </div>
+              <div>
+                <label className="text-gray-400 text-sm mc-text-shadow uppercase tracking-widest mb-2 block">Auth Type</label>
+                <div className="flex gap-2">
+                  {(["offline", "online", "floodgate"] as const).map((t) => (
+                    <button
+                      key={t}
+                      disabled={bridgeActive}
+                      onClick={() => { playPressSound(); setBridgeAuthType(t); }}
+                      className={`flex-1 h-10 text-sm mc-text-shadow tracking-wider outline-none border-none transition-all ${
+                        bridgeAuthType === t
+                          ? "text-[#FFFF55] scale-105"
+                          : "text-gray-400 hover:text-white"
+                      } ${bridgeActive ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+                      style={{
+                        backgroundImage: bridgeAuthType === t
+                          ? "url('/images/button_highlighted.png')"
+                          : "url('/images/Button_Background.png')",
+                        backgroundSize: "100% 100%",
+                        imageRendering: "pixelated",
+                      }}
+                    >
+                      {t === "offline" ? "Offline" : t === "online" ? "MSA" : "Floodgate"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-4 w-full justify-center">
+              <button
+                onClick={() => { playPressSound(); setShowBridgeMenu(false); }}
+                className="w-32 h-10 flex items-center justify-center text-xl text-white mc-text-shadow"
+                style={{
+                  backgroundImage: "url('/images/Button_Background.png')",
+                  backgroundSize: "100% 100%",
+                  imageRendering: "pixelated",
+                }}
+              >
+                Close
+              </button>
+              <button
+                onClick={() => { playPressSound(); toggleBridge(); }}
+                disabled={bridgeStarting}
+                className={`w-40 h-10 flex items-center justify-center text-xl mc-text-shadow ${
+                  bridgeStarting ? "text-gray-500 cursor-not-allowed" : bridgeActive ? "text-red-400" : "text-[#FFFF55]"
+                }`}
+                style={{
+                  backgroundImage: "url('/images/button_highlighted.png')",
+                  backgroundSize: "100% 100%",
+                  imageRendering: "pixelated",
+                  opacity: bridgeStarting ? 0.5 : 1,
+                }}
+              >
+                {bridgeStarting ? "Starting..." : bridgeActive ? "Stop Bridge" : "Start Bridge"}
+              </button>
+            </div>
+          </div>
+        </motion.div>,
+        document.body
+      )}
     </motion.div>
   );
 });

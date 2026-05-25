@@ -30,9 +30,10 @@ const HomeView = memo(function HomeView() {
   const isInstalled = installs.includes(profile);
   const isDownloading = downloadingId === profile;
   const [menuFocus, setMenuFocus] = useState<number | null>(null);
+
   const hasAnyInstall = installs.length > 0;
 
-  const buttons = useMemo(
+  const buttonsVal = useMemo(
     () => [
       {
         label: !hasAnyInstall
@@ -82,16 +83,9 @@ const HomeView = memo(function HomeView() {
       },
     ],
     [
-      isDownloading,
-      hasAnyInstall,
-      isInstalled,
-      selectedVersionName,
-      handleLaunch,
-      toggleInstall,
-      profile,
-      setActiveView,
-      isGameRunning,
-      stopGame,
+      isDownloading, hasAnyInstall, isInstalled, selectedVersionName,
+      handleLaunch, toggleInstall, profile, setActiveView,
+      isGameRunning, stopGame,
     ],
   );
 
@@ -100,25 +94,22 @@ const HomeView = memo(function HomeView() {
       setMenuFocus(null);
       return;
     }
-
-    const handleKeyDown = (e: KeyboardEvent) => {
+    const handleKey = (e: KeyboardEvent) => {
       if (document.activeElement?.tagName === "INPUT") return;
       if (e.key === "ArrowDown")
         setMenuFocus((prev) =>
-          prev === null ? 0 : prev < buttons.length - 1 ? prev + 1 : prev,
+          prev === null ? 0 : prev < buttonsVal.length - 1 ? prev + 1 : prev,
         );
       if (e.key === "ArrowUp")
         setMenuFocus((prev) =>
-          prev === null ? buttons.length - 1 : prev > 0 ? prev - 1 : prev,
+          prev === null ? buttonsVal.length - 1 : prev > 0 ? prev - 1 : prev,
         );
       if (e.key === "ArrowLeft") onNavigateToSkin();
-      if (e.key === "Enter" && menuFocus !== null) {
-        buttons[menuFocus].action();
-      }
+      if (e.key === "Enter" && menuFocus !== null) buttonsVal[menuFocus].action();
     };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [menuFocus, buttons, playPressSound, isFocusedSection, onNavigateToSkin]);
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [menuFocus, buttonsVal, isFocusedSection, onNavigateToSkin]);
 
   return (
     <motion.div
@@ -129,7 +120,7 @@ const HomeView = memo(function HomeView() {
       transition={{ duration: useConfig().animationsEnabled ? 0.3 : 0 }}
       className="relative w-full max-w-[540px] flex flex-col space-y-3 outline-none"
     >
-      {buttons.map((btn: { label: string; action: () => void; isDanger?: boolean; disabled: boolean; id?: string }, i: number) => (
+      {buttonsVal.map((btn, i) => (
         <div key={i} className="relative w-full group">
           <button
             onMouseEnter={() =>
