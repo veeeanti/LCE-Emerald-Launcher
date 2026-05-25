@@ -1,5 +1,6 @@
 use std::fs;
 use std::path::PathBuf;
+use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Manager, State};
 use tauri_plugin_opener::OpenerExt;
 use crate::commands::runners;
@@ -8,6 +9,7 @@ use crate::config;
 use crate::platform::macos;
 #[cfg(unix)]
 use crate::platform::linux;
+use crate::playtime::{self, PlaytimeResponse};
 use crate::state::GameState;
 use crate::types::McServer;
 use crate::util;
@@ -113,6 +115,7 @@ pub async fn launch_game(
                     cmd.arg(a);
                 }
                 cmd.current_dir(&working_dir);
+                let playtime_start = std::time::Instant::now();
                 let child = cmd.spawn().map_err(|e| e.to_string())?;
                 {
                     let mut lock = state.child.lock().await;
@@ -137,6 +140,11 @@ pub async fn launch_game(
                     let mut lock = state.child.lock().await;
                     *lock = None;
                 }
+
+                let duration = playtime_start.elapsed();
+                let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+                let start = now - duration.as_secs();
+                playtime::record_session(&app, &instance_id, start, now);
 
                 return if status.success() || status.code() == Some(253) || status.code() == Some(96) {
                     Ok(())
@@ -222,6 +230,7 @@ pub async fn launch_game(
                 .stdout(std::process::Stdio::null())
                 .stderr(std::process::Stdio::null());
 
+            let playtime_start = std::time::Instant::now();
             let child = cmd.spawn().map_err(|e| e.to_string())?;
             {
                 let mut lock = state.child.lock().await;
@@ -246,6 +255,11 @@ pub async fn launch_game(
                 let mut lock = state.child.lock().await;
                 *lock = None;
             }
+
+            let duration = playtime_start.elapsed();
+            let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+            let start = now - duration.as_secs();
+            playtime::record_session(&app, &instance_id, start, now);
 
             return if status.success() || status.code() == Some(253) || status.code() == Some(96) {
                 Ok(())
@@ -263,6 +277,7 @@ pub async fn launch_game(
             #[cfg(unix)]
             cmd.process_group(0);
             cmd.current_dir(&working_dir);
+            let playtime_start = std::time::Instant::now();
             let child = cmd.spawn().map_err(|e| e.to_string())?;
             {
                 let mut lock = state.child.lock().await;
@@ -285,6 +300,10 @@ pub async fn launch_game(
                 let mut lock = state.child.lock().await;
                 *lock = None;
             }
+            let duration = playtime_start.elapsed();
+            let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+            let start = now - duration.as_secs();
+            playtime::record_session(&app, &instance_id, start, now);
             return if status.success() || status.code() == Some(253) || status.code() == Some(96) {
                 Ok(())
             } else {
@@ -360,6 +379,11 @@ pub fn get_instance_path(app: AppHandle, instance_id: String) -> String {
     util::get_instance_working_dir(&app, &instance_id)
         .to_string_lossy()
         .to_string()
+}
+
+#[tauri::command]
+pub fn get_playtime(app: AppHandle, instance_id: String) -> PlaytimeResponse {
+    playtime::get_playtime(&app, &instance_id)
 }
 
 pub fn ensure_server_list(instance_dir: &PathBuf, servers: Vec<McServer>) {

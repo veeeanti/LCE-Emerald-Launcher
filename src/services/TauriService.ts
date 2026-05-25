@@ -68,6 +68,12 @@ export interface InstalledWorkshopPackage {
   version: string;
 }
 
+export interface PlaytimeResponse {
+  totalSeconds: number;
+  weekSeconds: number;
+  daySeconds: number;
+}
+
 export class TauriService {
   static async saveConfig(config: AppConfig): Promise<void> {
     return invoke("save_config", { config });
@@ -281,6 +287,10 @@ export class TauriService {
     headers: Record<string, string>
   ): Promise<{ status: number; body: string }> {
     return invoke("http_proxy_request", { method, url, body, headers });
+  }
+
+  static async getPlaytime(instanceId: string): Promise<PlaytimeResponse> {
+    return invoke("get_playtime", { instanceId });
   }
 
   static async getInstancePath(instanceId: string): Promise<string> {

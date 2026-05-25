@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef, memo } from "react";
 import { motion } from "framer-motion";
-import { TauriService } from "../../services/TauriService";
+import { TauriService, PlaytimeResponse } from "../../services/TauriService";
 import CustomTUModal from "../modals/CustomTUModal";
 import SetUidModal from "../modals/SetUidModal";
 import ImportWorldModal from "../modals/ImportWorldModal";
+import PlaytimeModal from "../modals/PlaytimeModal";
 import {
   useUI,
   useConfig,
@@ -46,6 +47,14 @@ const DeleteConfirmButton = memo(function DeleteConfirmButton({
   );
 });
 
+function formatPlaytime(seconds: number): string {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  if (h > 0) return `${h}h ${m}m`;
+  if (m > 0) return `${m}m`;
+  return seconds > 0 ? `${seconds}s` : "";
+}
+
 const VersionsView = memo(function VersionsView() {
   const { setActiveView } = useUI();
   const {
@@ -78,6 +87,9 @@ const VersionsView = memo(function VersionsView() {
   const [editingEdition, setEditingEdition] = useState<Edition | null>(null);
   const [isImportWorldModalOpen, setIsImportWorldModalOpen] = useState(false);
   const [importWorldTarget, setImportWorldTarget] = useState<{ id: string; name: string } | null>(null);
+  const [isPlaytimeModalOpen, setIsPlaytimeModalOpen] = useState(false);
+  const [playtimeTarget, setPlaytimeTarget] = useState<{ id: string; name: string } | null>(null);
+  const [playtimeMap, setPlaytimeMap] = useState<Record<string, PlaytimeResponse>>({});
   const [initialPath, setInitialPath] = useState<string>("");
   const [hoveredBtn, setHoveredBtn] = useState<{
     row: number;
@@ -188,6 +200,21 @@ const VersionsView = memo(function VersionsView() {
       }
     }
   }, [focusIndex]);
+
+  useEffect(() => {
+    const fetchPlaytimes = async () => {
+      const map: Record<string, PlaytimeResponse> = {};
+      await Promise.all(installedVersions.map(async (id) => {
+        try {
+          map[id] = await TauriService.getPlaytime(id);
+        } catch (e) {
+          console.error(e);
+        }
+      }));
+      setPlaytimeMap(map);
+    };
+    fetchPlaytimes();
+  }, [installedVersions]);
 
   const handleEditionClick = (edition: Edition, index: number) => {
     const isInstalled = installedVersions.includes(edition.instanceId);
@@ -331,6 +358,36 @@ const VersionsView = memo(function VersionsView() {
                       >
                         {edition.name}
                       </span>
+                      {isInstalled && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            playPressSound();
+                            setPlaytimeTarget({ id: edition.instanceId, name: edition.name });
+                            setIsPlaytimeModalOpen(true);
+                          }}
+                          className="flex items-center gap-1.5 px-2 py-1 bg-black/60 border border-[#555] hover:border-[#FFFF55] group transition-colors flex-shrink-0"
+                          title="View playtime"
+                        >
+                          <svg
+                            width="12"
+                            height="12"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="#AAAAAA"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            className="group-hover:stroke-[#FFFF55] transition-colors"
+                          >
+                            <circle cx="12" cy="12" r="10" />
+                            <polyline points="12 6 12 12 16 14" />
+                          </svg>
+                          <span className="text-xs text-[#AAAAAA] group-hover:text-[#FFFF55] leading-none transition-colors">
+                            {playtimeMap[edition.instanceId] ? formatPlaytime(playtimeMap[edition.instanceId].totalSeconds) : ""}
+                          </span>
+                        </button>
+                      )}
                       {edition.category &&
                         edition.category.map((cat: string) => (
                           <span
@@ -767,6 +824,14 @@ const VersionsView = memo(function VersionsView() {
         playBackSound={playBackSound}
         targetInstanceId={importWorldTarget?.id ?? ""}
         targetInstanceName={importWorldTarget?.name ?? ""}
+      />
+
+      <PlaytimeModal
+        isOpen={isPlaytimeModalOpen}
+        onClose={() => { setIsPlaytimeModalOpen(false); setPlaytimeTarget(null); }}
+        playBackSound={playBackSound}
+        instanceId={playtimeTarget?.id ?? ""}
+        instanceName={playtimeTarget?.name ?? ""}
       />
 
       {deleteConfirmEdition && (

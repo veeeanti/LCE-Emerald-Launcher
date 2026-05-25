@@ -2,6 +2,7 @@ mod types;
 mod state;
 mod config;
 mod util;
+mod playtime;
 mod platform;
 mod networking;
 mod workshop_server;
@@ -80,6 +81,7 @@ pub fn run() {
             steam::add_to_steam,
             proxy_cmd::http_proxy_request,
             game::get_instance_path,
+            game::get_playtime,
             commands::console2lce::import_world,
             stun::stun_discover,
             direct::start_direct_proxy,
