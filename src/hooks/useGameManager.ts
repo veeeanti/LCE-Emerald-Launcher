@@ -421,7 +421,7 @@ export function useGameManager({
     } finally {
       setIsGameRunning(false);
     }
-  }, [isGameRunning, profile]);
+  }, [isGameRunning, profile, extraLaunchArgs]);
 
   const stopGame = useCallback(async () => {
     try {

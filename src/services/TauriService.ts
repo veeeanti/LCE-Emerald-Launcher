@@ -84,7 +84,7 @@ export interface PlaytimeDayEntry {
 
 export class TauriService {
   static async saveConfig(config: AppConfig): Promise<void> {
-    return invoke("save_config", { config });
+    return invoke("save_config", { configVal: config });
   }
 
   static async loadConfig(): Promise<AppConfig> {
