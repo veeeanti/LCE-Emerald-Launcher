@@ -13,6 +13,9 @@ use tauri::Emitter;
 use serde::Deserialize;
 #[cfg(target_os = "macos")]
 use crate::platform::macos;
+#[cfg(target_os = "macos")]
+use std::fs;
+
 #[tauri::command]
 pub fn check_macos_runtime_installed(_app: AppHandle) -> bool {
     #[cfg(target_os = "macos")]
