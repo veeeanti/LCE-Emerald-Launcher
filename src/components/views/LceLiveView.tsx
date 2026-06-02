@@ -803,16 +803,7 @@ const LceLiveView = memo(function LceLiveView() {
           </div>
         )}
 
-        <div
-          className="flex-1 flex flex-col p-8 z-10 relative overflow-hidden rounded-b shadow-[0_0_30px_rgba(0,0,0,0.6)] border-4 border-[#222] border-t-0"
-          style={{
-            backgroundImage: "url('/images/background.png')",
-            backgroundSize: "100% auto",
-            backgroundRepeat: "no-repeat",
-            backgroundPosition: "top",
-            imageRendering: "pixelated",
-          }}
-        >
+        <div className="flex-1 flex flex-col p-8 z-10 relative overflow-hidden mc-options-bg">
           {renderContent()}
         </div>
         <div className="flex justify-center pt-4 pb-2">
