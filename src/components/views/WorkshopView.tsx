@@ -1,4 +1,4 @@
-import {
+import React, {
   useState,
   useEffect,
   memo,
@@ -37,7 +37,7 @@ const SERVERS_BASE =
   "https://raw.githubusercontent.com/bytebukkit/servers/refs/heads/main";
 const CATEGORY_TABS = ["Skin", "Texture", "World", "Mod", "DLC"] as const;
 const UTILITY_TABS = ["Versions", "Installed", "Search"] as const;
-const SERVER_TABS = ["Server", "Plugins"] as const;
+const SERVER_TABS = ["Server", "Server Plugins"] as const;
 const ALL_TABS = [...CATEGORY_TABS, ...UTILITY_TABS, ...SERVER_TABS] as const;
 type TabType = (typeof ALL_TABS)[number];
 interface RegistryPackage {
@@ -236,7 +236,7 @@ const WorkshopView = memo(function WorkshopView() {
         }
         return [];
       }
-      if (activeTab === "Plugins" || activeTab === "Server") return [];
+      if (activeTab === "Server Plugins" || activeTab === "Server") return [];
       return installedPkgs.filter((p) => p.packageId === pkgId);
     },
     [installedPkgs, activeTab, config.customEditions, versionPackages],
@@ -244,7 +244,7 @@ const WorkshopView = memo(function WorkshopView() {
 
   const isInstalled = useCallback(
     (pkgId: string) => {
-      if (activeTab === "Plugins" || activeTab === "Server") return false;
+      if (activeTab === "Server Plugins" || activeTab === "Server") return false;
       if (activeTab === "Versions") {
         return (
           config.customEditions?.some(
@@ -263,7 +263,7 @@ const WorkshopView = memo(function WorkshopView() {
     (pkg: RegistryPackage) => {
       if (
         activeTab === "Versions" ||
-        activeTab === "Plugins" ||
+        activeTab === "Server Plugins" ||
         activeTab === "Server"
       )
         return false;
@@ -288,7 +288,7 @@ const WorkshopView = memo(function WorkshopView() {
             );
           })
         : installedPackageList
-      : activeTab === "Plugins"
+      : activeTab === "Server Plugins"
         ? search.trim()
           ? serverPlugins.filter((pkg) => {
               if (
@@ -485,7 +485,7 @@ const WorkshopView = memo(function WorkshopView() {
     isSearchTab ||
     isInstalledTab ||
     isVersionTab ||
-    activeTab === "Plugins" ||
+    activeTab === "Server Plugins" ||
     activeTab === "Server";
   return (
     <motion.div
@@ -501,72 +501,78 @@ const WorkshopView = memo(function WorkshopView() {
         Workshop
       </h2>
 
-      <div className="flex items-center justify-center gap-2 mb-4 w-full flex-wrap px-4">
-        {CATEGORY_TABS.map((tab) => {
-          const isActive = tab === activeTab;
-          return (
-            <button
-              key={tab}
-              onClick={() => selectTab(tab)}
-              className={`
-                relative h-10 px-5 text-sm mc-text-shadow tracking-widest border-none outline-none cursor-pointer
-                ${isActive ? "text-[#FFFF55]" : "text-white hover:text-[#FFFF55]"}
-              `}
-              style={{
-                backgroundImage: isActive
-                  ? "url('/images/button_highlighted.png')"
-                  : "url('/images/Button_Background.png')",
-                backgroundSize: "100% 100%",
-                imageRendering: "pixelated",
-              }}
-            >
-              {tab.toUpperCase()}
-            </button>
-          );
-        })}
-      </div>
+      <div className="flex items-center justify-center gap-0 mb-4 w-full px-4">
+        <div className="flex items-center gap-1 px-[11px] py-1 rounded-sm bg-[#696969] border-2 border-black" style={{boxShadow: "inset 0 0 0 2px #fff"}}>
+          {CATEGORY_TABS.map((tab, i) => {
+            const isActive = tab === activeTab;
+            return (
+              <React.Fragment key={tab}>
+                {i > 0 && <div className="w-[2px] h-5 bg-[#777] shrink-0" />}
+                <button
+                  onClick={() => selectTab(tab)}
+                  className={`relative h-8 px-3 text-xs mc-text-shadow tracking-widest border-none outline-none cursor-pointer transition-colors rounded-sm ${
+                    isActive
+                      ? "text-[#FFFF55] bg-[#FFFF55]/10 shadow-[0_0_12px_rgba(255,255,85,0.15)]"
+                      : "text-[#aaa] hover:text-white hover:bg-white/5"
+                  }`}
+                >
+                  {tab.toUpperCase()}
+                </button>
+              </React.Fragment>
+            );
+          })}
+        </div>
 
-      <div className="flex items-center justify-center gap-2 mb-4 w-full flex-wrap px-4">
-        {SERVER_TABS.map((tab) => {
-          const isActive = tab === activeTab;
-          return (
-            <button
-              key={tab}
-              onClick={() => selectTab(tab)}
-              className={`
-                relative h-8 px-4 text-xs mc-text-shadow tracking-widest border outline-none cursor-pointer transition-all
-                ${isActive ? "text-[#FFFF55] border-[#FFFF55] bg-black/40" : "text-[#A0A0A0] border-[#444] hover:text-white hover:border-[#888]"}
-              `}
-            >
-              {tab.toUpperCase()}
-            </button>
-          );
-        })}
-        <div className="w-px h-6 bg-[#444] mx-2" />
-        {UTILITY_TABS.map((tab) => {
-          const isActive = tab === activeTab;
-          const updateCount =
-            tab === "Installed"
-              ? allPackages.filter((p) => hasUpdate(p)).length
-              : 0;
-          return (
-            <button
-              key={tab}
-              onClick={() => selectTab(tab)}
-              className={`
-                relative h-8 px-4 text-xs mc-text-shadow tracking-widest border outline-none cursor-pointer transition-all
-                ${isActive ? "text-[#FFFF55] border-[#FFFF55] bg-black/40" : "text-[#A0A0A0] border-[#444] hover:text-white hover:border-[#888]"}
-              `}
-            >
-              {tab.toUpperCase()}
-              {updateCount > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 bg-[#FF5555] text-white text-[8px] rounded-full w-4 h-4 flex items-center justify-center font-bold mc-text-shadow border border-[#AA0000]">
-                  {updateCount}
-                </span>
-              )}
-            </button>
-          );
-        })}
+        <div className="flex items-center gap-1 px-[11px] py-1 ml-3 rounded-sm bg-[#696969] border-2 border-black" style={{boxShadow: "inset 0 0 0 2px #fff"}}>
+          {UTILITY_TABS.map((tab, i) => {
+            const isActive = tab === activeTab;
+            const updateCount =
+              tab === "Installed"
+                ? allPackages.filter((p) => hasUpdate(p)).length
+                : 0;
+            return (
+              <React.Fragment key={tab}>
+                {i > 0 && <div className="w-[2px] h-5 bg-[#777] shrink-0" />}
+                <button
+                  onClick={() => selectTab(tab)}
+                  className={`relative h-8 px-3 text-xs mc-text-shadow tracking-widest border-none outline-none cursor-pointer transition-colors rounded-sm ${
+                    isActive
+                      ? "text-[#FFFF55] bg-[#FFFF55]/10 shadow-[0_0_12px_rgba(255,255,85,0.15)]"
+                      : "text-[#aaa] hover:text-white hover:bg-white/5"
+                  }`}
+                >
+                  {tab.toUpperCase()}
+                  {updateCount > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 bg-[#FF5555] text-white text-[8px] rounded-full w-4 h-4 flex items-center justify-center font-bold mc-text-shadow border border-[#AA0000]">
+                      {updateCount}
+                    </span>
+                  )}
+                </button>
+              </React.Fragment>
+            );
+          })}
+        </div>
+
+        <div className="flex items-center gap-1 px-[11px] py-1 ml-3 rounded-sm bg-[#696969] border-2 border-black" style={{boxShadow: "inset 0 0 0 2px #fff"}}>
+          {SERVER_TABS.map((tab, i) => {
+            const isActive = tab === activeTab;
+            return (
+              <React.Fragment key={tab}>
+                {i > 0 && <div className="w-[2px] h-5 bg-[#777] shrink-0" />}
+                <button
+                  onClick={() => selectTab(tab)}
+                  className={`relative h-8 px-3 text-xs mc-text-shadow tracking-widest border-none outline-none cursor-pointer transition-colors rounded-sm ${
+                    isActive
+                      ? "text-[#FFFF55] bg-[#FFFF55]/10 shadow-[0_0_12px_rgba(255,255,85,0.15)]"
+                      : "text-[#aaa] hover:text-white hover:bg-white/5"
+                  }`}
+                >
+                  {tab.toUpperCase()}
+                </button>
+              </React.Fragment>
+            );
+          })}
+        </div>
       </div>
 
       <div className="w-[98%] flex-1 relative overflow-hidden mc-options-bg">
@@ -594,7 +600,7 @@ const WorkshopView = memo(function WorkshopView() {
                         ? "FILTER INSTALLED..."
                         : isVersionTab
                           ? "FILTER VERSIONS..."
-                          : activeTab === "Plugins"
+                          : activeTab === "Server Plugins"
                             ? "FILTER PLUGINS..."
                             : activeTab === "Server"
                               ? "FILTER SERVERS..."
@@ -617,7 +623,7 @@ const WorkshopView = memo(function WorkshopView() {
                   )}
                 </div>
               </div>
-              {activeTab === "Plugins" && serverCategories.length > 1 && (
+              {activeTab === "Server Plugins" && serverCategories.length > 1 && (
                 <div className="flex items-center gap-2 px-6 pb-3 overflow-x-auto scroll-smooth">
                   {serverCategories.map((cat) => (
                     <button
@@ -727,7 +733,7 @@ const WorkshopView = memo(function WorkshopView() {
                     <span className="text-2xl text-[#E0E0E0] mc-text-shadow uppercase tracking-widest opacity-60">
                       {isInstalledTab
                         ? "Nothing Installed"
-                        : activeTab === "Plugins"
+                        : activeTab === "Server Plugins"
                           ? "No plugins available"
                           : activeTab === "Server"
                             ? "No servers available"
@@ -754,7 +760,7 @@ const WorkshopView = memo(function WorkshopView() {
                     ))}
                   </div>
                 )}
-                {(activeTab === "Plugins" || activeTab === "Server") && (
+                {(activeTab === "Server Plugins" || activeTab === "Server") && (
                   <div className="flex justify-center pt-4 pb-2">
                     <img
                       src="/images/bytebukkit.png"
@@ -847,7 +853,7 @@ const WorkshopView = memo(function WorkshopView() {
             onInstallComplete={refreshInstalled}
             onUninstallComplete={refreshInstalled}
             isVersionTab={activeTab === "Versions"}
-            isServerTab={activeTab === "Plugins"}
+            isServerTab={activeTab === "Server Plugins"}
             isGameServerTab={activeTab === "Server"}
             isSaved={
               selectedPkg.server_address

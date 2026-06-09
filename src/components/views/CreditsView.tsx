@@ -63,7 +63,10 @@ const CreditsView = memo(function CreditsView() {
             {
               role: "",
               members: [
-                { name: "Santiago Fisela", url: "https://github.com/PinkLittleKitty" },
+                {
+                  name: "Santiago Fisela",
+                  url: "https://github.com/PinkLittleKitty",
+                },
                 { name: "Leon", url: "https://github.com/hornyalcoholic" },
                 { name: "Criador_Mods", url: "https://github.com/CriadorMods" },
               ],
@@ -81,9 +84,7 @@ const CreditsView = memo(function CreditsView() {
           roles: [
             {
               role: "Founder",
-              members: [
-                { name: "Piebot", url: "https://github.com/Piebot" },
-              ],
+              members: [{ name: "Piebot", url: "https://github.com/Piebot" }],
             },
           ],
           subprojects: [
@@ -94,7 +95,10 @@ const CreditsView = memo(function CreditsView() {
                   role: "Active Maintainer",
                   members: [
                     { name: "Andi_pog", url: "https://github.com/Andi-pog" },
-                    { name: "LordCambion", url: "https://github.com/LordCambion" },
+                    {
+                      name: "LordCambion",
+                      url: "https://github.com/LordCambion",
+                    },
                     { name: "neoapps", url: "https://github.com/neoapps-dev" },
                     { name: "tranqlmao", url: "https://github.com/tranqlmao" },
                   ],
@@ -161,9 +165,7 @@ const CreditsView = memo(function CreditsView() {
           roles: [
             {
               role: "Founder",
-              members: [
-                { name: "Revela", url: "https://github.com/Revela" },
-              ],
+              members: [{ name: "Revela", url: "https://github.com/Revela" }],
             },
           ],
         },
@@ -173,9 +175,7 @@ const CreditsView = memo(function CreditsView() {
           roles: [
             {
               role: "Founder",
-              members: [
-                { name: "TBD", url: "#" },
-              ],
+              members: [{ name: "TBD", url: "#" }],
             },
           ],
         },
@@ -207,9 +207,7 @@ const CreditsView = memo(function CreditsView() {
           roles: [
             {
               role: "",
-              members: [
-                { name: "faisal508508", url: "#" },
-              ],
+              members: [{ name: "faisal508508", url: "#" }],
             },
           ],
         },
@@ -240,7 +238,9 @@ const CreditsView = memo(function CreditsView() {
         onMouseLeave={() => setIsHovered(false)}
         className="fixed bottom-8 left-8 z-50 h-10 flex items-center justify-center gap-2 px-4 text-xl mc-text-shadow outline-none border-none"
         style={{
-          backgroundImage: isHovered ? "url('/images/button_highlighted.png')" : "url('/images/Button_Background.png')",
+          backgroundImage: isHovered
+            ? "url('/images/button_highlighted.png')"
+            : "url('/images/Button_Background.png')",
           backgroundSize: "100% 100%",
           imageRendering: "pixelated",
           color: isHovered ? "#FFFF55" : "white",
@@ -253,17 +253,26 @@ const CreditsView = memo(function CreditsView() {
         initial={{ y: "50%" }}
         animate={{ y: "-200%" }}
         transition={{ duration: 45, ease: "linear" }}
-        onAnimationComplete={() => setActiveView("main")}
         className="flex flex-col items-center justify-center space-y-8 py-20"
       >
+        <div className="mb-8">
+          <img
+            src="/images/emerald_launcher.png"
+            alt="Emerald Launcher"
+            className="h-20"
+            style={{ imageRendering: "pixelated" }}
+          />
+        </div>
         {credits.map((cat) => (
           <div key={cat.category} className="flex flex-col items-center gap-6">
-            <h2 
+            <h2
               className={`text-3xl font-bold mc-text-shadow uppercase tracking-wider text-center flex items-center gap-3 ${
-                cat.category === "LCE TEAM" ? "text-[#9B59B6]" : 
-                cat.category === "SPECIAL THANKS" ? "text-[#FFD700]" : 
-                "text-[#50C878]"
-              }`} 
+                cat.category === "LCE TEAM"
+                  ? "text-[#9B59B6]"
+                  : cat.category === "SPECIAL THANKS"
+                    ? "text-[#FFD700]"
+                    : "text-[#50C878]"
+              }`}
               style={{ textShadow: "2px 2px 0px #000000" }}
             >
               {cat.icon && (
@@ -278,10 +287,17 @@ const CreditsView = memo(function CreditsView() {
             </h2>
             <div className="flex flex-col items-center gap-4">
               {cat.subcategories.map((sub) => (
-                <div key={sub.name} className="flex flex-col items-center gap-3">
-                  <h3 className={`text-2xl mc-text-shadow uppercase tracking-wide text-center flex items-center gap-3 ${
-                    sub.name === "Discord Booster" ? "text-[#FF69B4]" : "text-white/90"
-                  }`}>
+                <div
+                  key={sub.name}
+                  className="flex flex-col items-center gap-3"
+                >
+                  <h3
+                    className={`text-2xl mc-text-shadow uppercase tracking-wide text-center flex items-center gap-3 ${
+                      sub.name === "Discord Booster"
+                        ? "text-[#FF69B4]"
+                        : "text-white/90"
+                    }`}
+                  >
                     {sub.icon && (
                       <img
                         src={sub.icon}
@@ -294,7 +310,10 @@ const CreditsView = memo(function CreditsView() {
                   </h3>
                   <div className="flex flex-col items-center gap-2">
                     {sub.roles.map((role) => (
-                      <div key={role.role} className="flex flex-col items-center gap-2">
+                      <div
+                        key={role.role}
+                        className="flex flex-col items-center gap-2"
+                      >
                         {role.role && (
                           <h4 className="text-white/70 text-lg mc-text-shadow uppercase tracking-wide text-center">
                             {role.role}
@@ -319,12 +338,18 @@ const CreditsView = memo(function CreditsView() {
                     {sub.subprojects && sub.subprojects.length > 0 && (
                       <div className="flex flex-col items-center gap-3 mt-4">
                         {sub.subprojects.map((project) => (
-                          <div key={project.name} className="flex flex-col items-center gap-2">
+                          <div
+                            key={project.name}
+                            className="flex flex-col items-center gap-2"
+                          >
                             <h4 className="text-white/60 text-lg mc-text-shadow uppercase tracking-wide text-center">
                               {project.name}
                             </h4>
                             {project.roles.map((role) => (
-                              <div key={role.role} className="flex flex-col items-center gap-2">
+                              <div
+                                key={role.role}
+                                className="flex flex-col items-center gap-2"
+                              >
                                 {role.role && (
                                   <h5 className="text-white/50 text-base mc-text-shadow uppercase tracking-wide text-center">
                                     {role.role}
@@ -338,7 +363,9 @@ const CreditsView = memo(function CreditsView() {
                                       target="_blank"
                                       rel="noopener noreferrer"
                                       className="text-[#e2cc4c] text-xl mc-text-shadow font-medium cursor-pointer"
-                                      style={{ textShadow: "2px 2px 0px #000000" }}
+                                      style={{
+                                        textShadow: "2px 2px 0px #000000",
+                                      }}
                                     >
                                       {member.name}
                                     </a>
@@ -368,8 +395,8 @@ const CreditsView = memo(function CreditsView() {
           </div>
           <div className="bg-white rounded-xl p-3 shadow-2xl w-64">
             <img
-              src="/images/esrb_warning.png"
-              alt="ESRB Warning"
+              src="/images/emerald_block.png"
+              alt="Emerald"
               className="w-full h-auto object-contain"
               style={{ imageRendering: "pixelated" }}
             />
@@ -378,7 +405,9 @@ const CreditsView = memo(function CreditsView() {
 
         <div className="flex flex-col items-center gap-2 mt-8">
           <p className="text-white/60 text-sm mc-text-shadow text-center uppercase tracking-wider">
-            Minecraft is a trademark of Mojang Synergies AB. This project is not affiliated with, endorsed by, sponsored by, or specifically approved by Mojang, Microsoft, or 4J Studios.
+            Minecraft is a trademark of Mojang Synergies AB. This project is not
+            affiliated with, endorsed by, sponsored by, or specifically approved
+            by Mojang, Microsoft, or 4J Studios.
           </p>
         </div>
       </motion.div>
