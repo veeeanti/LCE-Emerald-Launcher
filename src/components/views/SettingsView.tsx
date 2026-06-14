@@ -9,6 +9,7 @@ import {
   useGame,
 } from "../../context/LauncherContext";
 import { PluginManager, type PluginInfo } from "../../plugins/PluginManager";
+import { usePluginActions } from "../../plugins/PluginContext";
 
 const SettingsView = memo(function SettingsView() {
   const { setActiveView } = useUI();
@@ -65,6 +66,7 @@ const SettingsView = memo(function SettingsView() {
   >("main");
   const [runners, setRunners] = useState<Runner[]>([]);
   const [pluginsInfo, setPluginsInfo] = useState<PluginInfo[]>([]);
+  const pluginSettingsActions = usePluginActions("settings-tab");
   const containerRef = useRef<HTMLDivElement>(null);
   const [argsInput, setArgsInput] = useState("");
   const [prefixInput, setPrefixInput] = useState("");
@@ -340,6 +342,17 @@ const SettingsView = memo(function SettingsView() {
           setFocusIndex(0);
         },
       });
+      for (const action of pluginSettingsActions) {
+        items.push({
+          id: action.id,
+          label: action.label,
+          type: "button",
+          onClick: () => {
+            playPressSound();
+            action.onClick();
+          },
+        });
+      }
     } else if (currentSubMenu === "audio") {
       items.push({
         id: "music",
@@ -550,6 +563,7 @@ const SettingsView = memo(function SettingsView() {
     return items;
   }, [
     currentSubMenu,
+    pluginSettingsActions,
     musicVolume,
     sfxVolume,
     trackName,
