@@ -8,6 +8,7 @@ import {
   useSkin,
   useConfig,
 } from "../../context/LauncherContext";
+import SkinViewer from "../common/SkinViewer";
 
 interface SavedSkin {
   id: string;
@@ -674,10 +675,9 @@ const SkinsView = memo(function SkinsView() {
                         className="absolute max-w-none"
                         style={{
                           width: "auto",
-                          height: "200%",
-                          left: "50%",
-                          top: "-50%",
-                          transform: "translateX(-50%)",
+                          height: "100%",
+                          left: "0",
+                          top: "0",
                           imageRendering: "pixelated",
                         }}
                         loading="lazy"
@@ -701,6 +701,21 @@ const SkinsView = memo(function SkinsView() {
             </>
           )}
         </div>
+      </div>
+
+      <div className="w-full max-w-160 shadow-2xl flex flex-col items-center">
+        <SkinViewer
+          username=""
+          setUsername={() => {}}
+          playPressSound={playPressSound}
+          skinUrl={skinUrl}
+          setSkinUrl={setSkinUrl}
+          capeUrl={capeUrl}
+          setActiveView={setActiveView}
+          isFocusedSection={false}
+          onNavigateRight={() => {}}
+          hideControls
+        />
       </div>
 
       <button

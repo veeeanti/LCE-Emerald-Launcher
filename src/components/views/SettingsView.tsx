@@ -861,7 +861,6 @@ const SettingsView = memo(function SettingsView() {
           <div className="w-full space-y-3 flex flex-col items-center overflow-y-auto max-h-[50vh] py-2 settings-scrollbar">
             {settingsItems.map((item, index) => {
               if (item.id === "back") return null;
-
               if (item.type === "slider") {
                 return (
                   <div

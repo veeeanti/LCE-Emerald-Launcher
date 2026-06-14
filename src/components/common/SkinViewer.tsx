@@ -15,9 +15,10 @@ interface SkinViewerProps {
   setActiveView: (view: string) => void;
   isFocusedSection: boolean;
   onNavigateRight: () => void;
+  hideControls?: boolean;
 }
 
-const SkinViewer = memo(function SkinViewer({ username, setUsername, playPressSound, skinUrl, capeUrl, setActiveView, isFocusedSection, onNavigateRight }: SkinViewerProps) {
+const SkinViewer = memo(function SkinViewer({ username, setUsername, playPressSound, skinUrl, capeUrl, setActiveView, isFocusedSection, onNavigateRight, hideControls }: SkinViewerProps) {
   const mountRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [focusIndex, setFocusIndex] = useState(0);
@@ -263,7 +264,7 @@ const SkinViewer = memo(function SkinViewer({ username, setUsername, playPressSo
       transition={{ duration: useConfig().animationsEnabled ? 0.3 : 0 }}
       className={`absolute ${legacyMode ? 'left-[calc(50vw-340px)]' : 'left-16'} ${legacyMode ? 'top-1/2' : 'top-[40%]'} -translate-y-1/2 flex flex-col items-center gap-1 outline-none z-10`}
     >
-      {!legacyMode && (
+      {!hideControls && !legacyMode && (
         <div className={`relative z-20 bg-black/20 flex justify-center items-center ${legacyMode ? 'mb-0' : 'mb-2'} px-2 py-1 rounded-sm border-2 transition-colors ${isFocusedSection && focusIndex === 0 ? 'border-[#FFFF55]' : 'border-transparent'}`} data-focus="0" tabIndex={0}>
           <input
             type="text" value={username} maxLength={16}
@@ -284,38 +285,40 @@ const SkinViewer = memo(function SkinViewer({ username, setUsername, playPressSo
           <div ref={mountRef} className="absolute drop-shadow-[0_8px_8px_rgba(0,0,0,0.8)] cursor-ew-resize outline-none w-[260px] h-[450px] -translate-y-6" />
         </div>
       )}
-      <div className={`flex ${legacyMode ? 'flex-col gap-2 mt-0' : 'flex-row gap-4 mt-2'} items-center`}>
-        <button
-          data-focus="1" tabIndex={0}
-          onMouseEnter={() => isFocusedSection && setFocusIndex(1)}
-          onClick={() => { playPressSound(); setActiveView('skins'); }}
-          className={`mc-sq-btn w-12 h-12 flex items-center justify-center outline-none border-none ${isFocusedSection && focusIndex === 1 ? '' : ''}`}
-          style={isFocusedSection && focusIndex === 1 ? { backgroundImage: "url('/images/Button_Square_Highlighted.png')" } : {}}
-          title="Change Skin"
-        >
-          <img src="/images/Change_Skin_Icon.png" alt="Skin" className="w-8 h-8 object-contain" style={{ imageRendering: 'pixelated' }} />
-        </button>
-        <button
-          data-focus="2" tabIndex={0}
-          onMouseEnter={() => isFocusedSection && setFocusIndex(2)}
-          onClick={() => { playPressSound(); setActiveView('screenshots'); }}
-          className={`mc-sq-btn w-12 h-12 flex items-center justify-center outline-none border-none ${isFocusedSection && focusIndex === 2 ? '' : ''}`}
-          style={isFocusedSection && focusIndex === 2 ? { backgroundImage: "url('/images/Button_Square_Highlighted.png')" } : {}}
-          title="Screenshots"
-        >
-          <img src="/images/Screenshots_Icon.png" alt="Screenshots" className="w-8 h-8 object-contain" style={{ imageRendering: 'pixelated' }} />
-        </button>
-        <button
-          data-focus="3" tabIndex={0}
-          onMouseEnter={() => isFocusedSection && setFocusIndex(3)}
-          onClick={() => { playPressSound(); setActiveView('lcelive'); }}
-          className={`mc-sq-btn w-12 h-12 flex items-center justify-center outline-none border-none ${isFocusedSection && focusIndex === 3 ? '' : ''}`}
-          style={isFocusedSection && focusIndex === 3 ? { backgroundImage: "url('/images/Button_Square_Highlighted.png')" } : {}}
-          title="LCELive"
-        >
-          <img src="/images/friends.png" alt="LCELive" className="w-8 h-8 object-contain" style={{ imageRendering: 'pixelated' }} />
-        </button>
-      </div>
+      {!hideControls && (
+        <div className={`flex ${legacyMode ? 'flex-col gap-2 mt-0' : 'flex-row gap-4 mt-2'} items-center`}>
+          <button
+            data-focus="1" tabIndex={0}
+            onMouseEnter={() => isFocusedSection && setFocusIndex(1)}
+            onClick={() => { playPressSound(); setActiveView('skins'); }}
+            className={`mc-sq-btn w-12 h-12 flex items-center justify-center outline-none border-none ${isFocusedSection && focusIndex === 1 ? '' : ''}`}
+            style={isFocusedSection && focusIndex === 1 ? { backgroundImage: "url('/images/Button_Square_Highlighted.png')" } : {}}
+            title="Change Skin"
+          >
+            <img src="/images/Change_Skin_Icon.png" alt="Skin" className="w-8 h-8 object-contain" style={{ imageRendering: 'pixelated' }} />
+          </button>
+          <button
+            data-focus="2" tabIndex={0}
+            onMouseEnter={() => isFocusedSection && setFocusIndex(2)}
+            onClick={() => { playPressSound(); setActiveView('screenshots'); }}
+            className={`mc-sq-btn w-12 h-12 flex items-center justify-center outline-none border-none ${isFocusedSection && focusIndex === 2 ? '' : ''}`}
+            style={isFocusedSection && focusIndex === 2 ? { backgroundImage: "url('/images/Button_Square_Highlighted.png')" } : {}}
+            title="Screenshots"
+          >
+            <img src="/images/Screenshots_Icon.png" alt="Screenshots" className="w-8 h-8 object-contain" style={{ imageRendering: 'pixelated' }} />
+          </button>
+          <button
+            data-focus="3" tabIndex={0}
+            onMouseEnter={() => isFocusedSection && setFocusIndex(3)}
+            onClick={() => { playPressSound(); setActiveView('lcelive'); }}
+            className={`mc-sq-btn w-12 h-12 flex items-center justify-center outline-none border-none ${isFocusedSection && focusIndex === 3 ? '' : ''}`}
+            style={isFocusedSection && focusIndex === 3 ? { backgroundImage: "url('/images/Button_Square_Highlighted.png')" } : {}}
+            title="LCELive"
+          >
+            <img src="/images/friends.png" alt="LCELive" className="w-8 h-8 object-contain" style={{ imageRendering: 'pixelated' }} />
+          </button>
+        </div>
+      )}
 
     </motion.div>
   );
