@@ -98,6 +98,8 @@ pub fn run() {
             relay::join_game,
             plugins::get_plugins_dir,
             plugins::list_directory,
+            plugins::create_plugin_dir,
+            plugins::remove_plugin_dir,
         ])
         .setup(|app| {
             let app_handle = app.handle().clone();

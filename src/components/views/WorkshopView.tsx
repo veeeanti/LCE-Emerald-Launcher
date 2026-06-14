@@ -22,20 +22,25 @@ import {
   InstalledWorkshopPackage,
   type CustomEdition,
 } from "../../services/TauriService";
+import { PluginManager } from "../../plugins/PluginManager";
 const REGISTRY_URL =
   "https://raw.githubusercontent.com/LCE-Hub/LCE-Workshop/refs/heads/main/registry.json";
 const VERSIONS_URL =
   "https://raw.githubusercontent.com/LCE-Hub/LCE-Workshop/refs/heads/main/versions.json";
+const PLUGINS_URL =
+  "https://raw.githubusercontent.com/LCE-Hub/LCE-Workshop/refs/heads/main/plugins.json";
 const RAW_BASE =
   "https://raw.githubusercontent.com/LCE-Hub/LCE-Workshop/refs/heads/main";
 const VERSIONS_BASE =
   "https://raw.githubusercontent.com/LCE-Hub/LCE-Workshop/refs/heads/main/.00versions";
+const PLUGINS_BASE =
+  "https://raw.githubusercontent.com/LCE-Hub/LCE-Workshop/refs/heads/main/.00plugins";
 const BYTEBUKKIT_BASE = "https://emerald-bytebukkit.onrender.com";
 const SERVERS_URL =
   "https://raw.githubusercontent.com/bytebukkit/servers/refs/heads/main/servers.json";
 const SERVERS_BASE =
   "https://raw.githubusercontent.com/bytebukkit/servers/refs/heads/main";
-const CATEGORY_TABS = ["Skin", "Texture", "World", "Mod", "DLC"] as const;
+const CATEGORY_TABS = ["Skin", "Texture", "World", "Mod", "DLC", "Plugins"] as const;
 const UTILITY_TABS = ["Versions", "Installed", "Search"] as const;
 const SERVER_TABS = ["Server", "Server Plugins"] as const;
 const ALL_TABS = [...CATEGORY_TABS, ...UTILITY_TABS, ...SERVER_TABS] as const;
@@ -61,6 +66,9 @@ interface RegistryPackage {
   server_address?: string;
   server_discord?: string;
   server_type?: string;
+  main?: string;
+  permissions?: string[];
+  files?: string[];
 }
 
 interface ServerListing {
@@ -92,6 +100,18 @@ interface ByteBukkitAddon {
   displayName: string;
 }
 
+interface PluginRegistryEntry {
+  id: string;
+  name: string;
+  version: string;
+  author: string;
+  description: string;
+  extended_description?: string;
+  main: string;
+  permissions?: string[];
+  files?: string[];
+}
+
 const COLS = 4;
 const WorkshopView = memo(function WorkshopView() {
   const { setActiveView } = useUI();
@@ -117,6 +137,8 @@ const WorkshopView = memo(function WorkshopView() {
   const [serverListingCategory, setServerListingCategory] =
     useState<string>("all");
   const [savedServers, setSavedServers] = useState<Set<string>>(new Set());
+  const [pluginPackages, setPluginPackages] = useState<RegistryPackage[]>([]);
+  const [installedPluginIds, setInstalledPluginIds] = useState<Set<string>>(new Set());
   const refreshInstalled = useCallback(async () => {
     try {
       const data = await TauriService.workshopListInstalled();
@@ -124,6 +146,12 @@ const WorkshopView = memo(function WorkshopView() {
     } catch {
       setInstalledPkgs([]);
     }
+  }, []);
+
+  const refreshInstalledPlugins = useCallback(() => {
+    const ids = new Set<string>();
+    PluginManager.instance.plugins.forEach((_, id) => ids.add(id));
+    setInstalledPluginIds(ids);
   }, []);
 
   useEffect(() => {
@@ -145,17 +173,36 @@ const WorkshopView = memo(function WorkshopView() {
     Promise.all([
       fetch(REGISTRY_URL).then((r) => r.json()),
       fetch(VERSIONS_URL).then((r) => r.json()),
+      fetch(PLUGINS_URL).then((r) => r.json()).catch(() => null),
     ])
-      .then(([registryData, versionsData]) => {
+      .then(([registryData, versionsData, pluginsData]) => {
         setAllPackages(registryData.packages ?? []);
         setVersionPackages(versionsData.versionlist ?? []);
+        if (pluginsData?.pluginlist) {
+          setPluginPackages(
+            pluginsData.pluginlist.map((entry: PluginRegistryEntry) => ({
+              id: entry.id,
+              name: entry.name,
+              version: entry.version,
+              author: entry.author,
+              description: entry.description,
+              extended_description: entry.extended_description || "",
+              category: ["Plugin"],
+              thumbnail: "",
+              main: entry.main,
+              permissions: entry.permissions,
+              files: entry.files,
+            })),
+          );
+        }
         setLoading(false);
       })
       .catch((e) => {
         setError(e.message ?? "Failed to load registry");
         setLoading(false);
       });
-  }, []);
+    refreshInstalledPlugins();
+  }, [refreshInstalledPlugins]);
 
   useEffect(() => {
     fetch(`${BYTEBUKKIT_BASE}/api/addons?limit=500`)
@@ -217,7 +264,7 @@ const WorkshopView = memo(function WorkshopView() {
   }, [serverListings]);
 
   const getInstalledEntries = useCallback(
-    (pkgId: string) => {
+    (pkgId: string, pkgVersion?: string) => {
       if (activeTab === "Versions") {
         const isAdded = config.customEditions?.some(
           (e: CustomEdition) =>
@@ -236,14 +283,20 @@ const WorkshopView = memo(function WorkshopView() {
         }
         return [];
       }
+      if (activeTab === "Plugins") {
+        return installedPluginIds.has(pkgId)
+          ? [{ packageId: pkgId, instanceId: pkgId, version: pkgVersion || "0.0.0" }] as InstalledWorkshopPackage[]
+          : [];
+      }
       if (activeTab === "Server Plugins" || activeTab === "Server") return [];
       return installedPkgs.filter((p) => p.packageId === pkgId);
     },
-    [installedPkgs, activeTab, config.customEditions, versionPackages],
+    [installedPkgs, activeTab, config.customEditions, versionPackages, installedPluginIds],
   );
 
   const isInstalled = useCallback(
     (pkgId: string) => {
+      if (activeTab === "Plugins") return installedPluginIds.has(pkgId);
       if (activeTab === "Server Plugins" || activeTab === "Server") return false;
       if (activeTab === "Versions") {
         return (
@@ -256,11 +309,14 @@ const WorkshopView = memo(function WorkshopView() {
       }
       return installedPkgs.some((p) => p.packageId === pkgId);
     },
-    [installedPkgs, activeTab, config.customEditions, versionPackages],
+    [installedPkgs, activeTab, config.customEditions, versionPackages, installedPluginIds],
   );
 
   const hasUpdate = useCallback(
     (pkg: RegistryPackage) => {
+      if (activeTab === "Plugins") {
+        return false;
+      }
       if (
         activeTab === "Versions" ||
         activeTab === "Server Plugins" ||
@@ -308,7 +364,7 @@ const WorkshopView = memo(function WorkshopView() {
             : serverPlugins.filter((pkg) =>
                 pkg.category.includes(serverCategory),
               )
-        : activeTab === "Server"
+          : activeTab === "Server"
           ? search.trim()
             ? serverListings.filter((pkg) => {
                 if (
@@ -328,6 +384,17 @@ const WorkshopView = memo(function WorkshopView() {
               : serverListings.filter((pkg) =>
                   pkg.category.includes(serverListingCategory),
                 )
+          : activeTab === "Plugins"
+            ? search.trim()
+              ? pluginPackages.filter((pkg) => {
+                  const q = search.toLowerCase();
+                  return (
+                    pkg.name.toLowerCase().includes(q) ||
+                    pkg.author.toLowerCase().includes(q) ||
+                    pkg.description.toLowerCase().includes(q)
+                  );
+                })
+              : pluginPackages
           : (activeTab === "Versions" ? versionPackages : allPackages).filter(
               (pkg) => {
                 const matchesTab =
@@ -454,11 +521,11 @@ const WorkshopView = memo(function WorkshopView() {
         playPressSound();
       } else if (e.key === "ArrowDown") {
         e.preventDefault();
-        setFocusedIdx((p) => Math.min((p ?? -COLS) + COLS, count - 1));
+        setFocusedIdx((p) => Math.min((p ?? -1) + (isPluginTab ? 1 : COLS), count - 1));
         playPressSound();
       } else if (e.key === "ArrowUp") {
         e.preventDefault();
-        setFocusedIdx((p) => Math.max((p ?? COLS) - COLS, 0));
+        setFocusedIdx((p) => Math.max((p ?? 1) - (isPluginTab ? 1 : COLS), 0));
         playPressSound();
       } else if (e.key === "Enter" && focusedIdx !== null) {
         const pkg = filteredItems[focusedIdx];
@@ -481,10 +548,12 @@ const WorkshopView = memo(function WorkshopView() {
   const isSearchTab = activeTab === "Search";
   const isInstalledTab = activeTab === "Installed";
   const isVersionTab = activeTab === "Versions";
+  const isPluginTab = activeTab === "Plugins";
   const showSearch =
     isSearchTab ||
     isInstalledTab ||
     isVersionTab ||
+    isPluginTab ||
     activeTab === "Server Plugins" ||
     activeTab === "Server";
   return (
@@ -600,11 +669,13 @@ const WorkshopView = memo(function WorkshopView() {
                         ? "FILTER INSTALLED..."
                         : isVersionTab
                           ? "FILTER VERSIONS..."
-                          : activeTab === "Server Plugins"
+                          : isPluginTab
                             ? "FILTER PLUGINS..."
-                            : activeTab === "Server"
-                              ? "FILTER SERVERS..."
-                              : "ENTER KEYWORDS..."
+                            : activeTab === "Server Plugins"
+                              ? "FILTER PLUGINS..."
+                              : activeTab === "Server"
+                                ? "FILTER SERVERS..."
+                                : "ENTER KEYWORDS..."
                     }
                     spellCheck={false}
                     autoFocus={isSearchTab}
@@ -733,12 +804,31 @@ const WorkshopView = memo(function WorkshopView() {
                     <span className="text-2xl text-[#E0E0E0] mc-text-shadow uppercase tracking-widest opacity-60">
                       {isInstalledTab
                         ? "Nothing Installed"
-                        : activeTab === "Server Plugins"
+                        : activeTab === "Plugins"
                           ? "No plugins available"
-                          : activeTab === "Server"
-                            ? "No servers available"
-                            : "No results"}
+                          : activeTab === "Server Plugins"
+                            ? "No plugins available"
+                            : activeTab === "Server"
+                              ? "No servers available"
+                              : "No results"}
                     </span>
+                  </div>
+                ) : isPluginTab ? (
+                  <div className="flex flex-col gap-2">
+                    {filteredItems.map((pkg, i) => (
+                      <PackageCard
+                        key={pkg.id}
+                        pkg={pkg}
+                        index={i}
+                        focused={focusedIdx === i}
+                        onHover={() => setFocusedIdx(i)}
+                        onClick={() => openModal(pkg)}
+                        installed={isInstalled(pkg.id)}
+                        hasUpdate={hasUpdate(pkg)}
+                        isVersionTab={isVersionTab}
+                        isPluginTab={isPluginTab}
+                      />
+                    ))}
                   </div>
                 ) : (
                   <div
@@ -794,6 +884,23 @@ const WorkshopView = memo(function WorkshopView() {
                     Empty category
                   </span>
                 </div>
+              ) : isPluginTab ? (
+                <div className="flex flex-col gap-2">
+                  {filteredItems.map((pkg, i) => (
+                    <PackageCard
+                      key={pkg.id}
+                      pkg={pkg}
+                      index={i}
+                      focused={focusedIdx === i}
+                      onHover={() => setFocusedIdx(i)}
+                      onClick={() => openModal(pkg)}
+                      installed={isInstalled(pkg.id)}
+                      hasUpdate={hasUpdate(pkg)}
+                      isVersionTab={isVersionTab}
+                      isPluginTab={isPluginTab}
+                    />
+                  ))}
+                </div>
               ) : (
                 <div
                   className="grid gap-6"
@@ -810,6 +917,7 @@ const WorkshopView = memo(function WorkshopView() {
                       installed={isInstalled(pkg.id)}
                       hasUpdate={hasUpdate(pkg)}
                       isVersionTab={isVersionTab}
+                      isPluginTab={isPluginTab}
                     />
                   ))}
                 </div>
@@ -849,12 +957,13 @@ const WorkshopView = memo(function WorkshopView() {
             pkg={selectedPkg}
             onClose={closeModal}
             playPressSound={playPressSound}
-            installedEntries={getInstalledEntries(selectedPkg.id)}
-            onInstallComplete={refreshInstalled}
-            onUninstallComplete={refreshInstalled}
+            installedEntries={getInstalledEntries(selectedPkg.id, selectedPkg.version)}
+            onInstallComplete={() => { refreshInstalled(); refreshInstalledPlugins(); }}
+            onUninstallComplete={() => { refreshInstalled(); refreshInstalledPlugins(); }}
             isVersionTab={activeTab === "Versions"}
             isServerTab={activeTab === "Server Plugins"}
             isGameServerTab={activeTab === "Server"}
+            isPluginTab={isPluginTab}
             isSaved={
               selectedPkg.server_address
                 ? savedServers.has(selectedPkg.server_address)
@@ -877,6 +986,7 @@ function PackageCard({
   installed,
   hasUpdate,
   isVersionTab,
+  isPluginTab,
 }: {
   pkg: RegistryPackage;
   index: number;
@@ -886,6 +996,7 @@ function PackageCard({
   installed: boolean;
   hasUpdate: boolean;
   isVersionTab?: boolean;
+  isPluginTab?: boolean;
 }) {
   const thumbnailUrl = pkg.thumbnail.startsWith("http")
     ? pkg.thumbnail
@@ -898,14 +1009,15 @@ function PackageCard({
       data-card={index}
       onMouseEnter={onHover}
       onClick={onClick}
-      className={`flex flex-col cursor-pointer border-2 ${focused ? "border-[#FFFF55] z-10" : "border-[#333]"} rounded-sm overflow-hidden bg-black/40`}
+      className={`flex flex-col cursor-pointer border-2 ${focused ? "border-[#FFFF55] z-10" : "border-[#333]"} rounded-sm overflow-hidden ${isPluginTab ? "bg-black/80" : "bg-black/40"}`}
       style={{
-        backgroundImage: "url('/images/frame_background.png')",
+        backgroundImage: isPluginTab ? "url('/images/Button_Background2.png')" : "url('/images/frame_background.png')",
         backgroundSize: "100% 100%",
         imageRendering: "pixelated",
         boxShadow: focused ? "0 0 20px rgba(255, 255, 85, 0.2)" : "none",
       }}
     >
+      {pkg.thumbnail ? (
       <div
         className={`w-full relative flex items-center justify-center overflow-hidden bg-black/50 border-b border-[#333] ${pkg.thumbnail.startsWith("http") ? "aspect-square" : "h-[120px]"}`}
       >
@@ -947,6 +1059,9 @@ function PackageCard({
           </div>
         )}
       </div>
+      ) : (
+      <div className="w-full h-1 bg-black/50 border-b border-[#333]" />
+      )}
       <div className="flex flex-col p-3 gap-1 relative bg-gradient-to-b from-transparent to-black/20">
         <span
           className={`text-base mc-text-shadow leading-tight truncate font-bold tracking-wide ${focused ? "text-[#FFFF55]" : "text-white"}`}
@@ -979,6 +1094,7 @@ function PackageModal({
   isVersionTab,
   isServerTab,
   isGameServerTab,
+  isPluginTab,
   isSaved,
   onToggleSave,
 }: {
@@ -991,6 +1107,7 @@ function PackageModal({
   isVersionTab?: boolean;
   isServerTab?: boolean;
   isGameServerTab?: boolean;
+  isPluginTab?: boolean;
   isSaved?: boolean;
   onToggleSave?: (pkg: RegistryPackage) => void;
 }) {
@@ -999,7 +1116,9 @@ function PackageModal({
     ? pkg.thumbnail
     : isVersionTab
       ? `${VERSIONS_BASE}/${pkg.id}/${pkg.thumbnail}`
-      : `${RAW_BASE}/${pkg.id}/${pkg.thumbnail}`;
+      : isPluginTab || !pkg.thumbnail
+        ? ""
+        : `${RAW_BASE}/${pkg.id}/${pkg.thumbnail}`;
   const [imgError, setImgError] = useState(false);
   const [modalFocus, setModalFocus] = useState<
     "install" | "uninstall" | "close"
@@ -1090,6 +1209,8 @@ function PackageModal({
       } catch (e) {
         console.error(e);
       }
+    } else if (isPluginTab) {
+      setShowInstall(true);
     } else {
       setShowInstall(true);
     }
@@ -1105,6 +1226,12 @@ function PackageModal({
         ? hasInstalled
           ? "ADDED"
           : "ADD"
+        : isPluginTab
+          ? hasInstalled
+            ? needsUpdate
+              ? "UPDATE"
+              : "REINSTALL"
+            : "INSTALL"
         : !hasInstalled
           ? "INSTALL"
           : needsUpdate
@@ -1114,6 +1241,18 @@ function PackageModal({
     <>
       <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/85" onClick={onClose}>
         <div onClick={(e) => e.stopPropagation()} className="flex flex-col w-[640px] max-h-[85vh] overflow-hidden font-['Mojangles'] mc-options-bg">
+          {isPluginTab ? (
+            <div className="w-full h-[100px] flex-shrink-0 bg-black/60 flex items-center px-6 border-b border-[#444]">
+              <div className="flex flex-col">
+                <span className="text-3xl text-white mc-text-shadow block leading-tight tracking-wide font-bold">
+                  {pkg.name}
+                </span>
+                <span className="text-base text-[#FFFF55] mc-text-shadow uppercase tracking-widest opacity-90">
+                  By {pkg.author}
+                </span>
+              </div>
+            </div>
+          ) : (
           <div className="w-full h-[240px] flex-shrink-0 bg-black/60 overflow-hidden relative border-b border-[#444]">
             {imgError ? (
               <div className="absolute inset-0 flex items-center justify-center opacity-20">
@@ -1161,6 +1300,7 @@ function PackageModal({
               </div>
             )}
           </div>
+          )}
 
           <div className="flex flex-col p-6 gap-6 overflow-y-auto flex-1">
             <div className="space-y-4">
@@ -1437,6 +1577,7 @@ function PackageModal({
               onInstallComplete();
             }}
             playPressSound={playPressSound}
+            isPluginTab={isPluginTab}
           />
         )}
       </AnimatePresence>
@@ -1451,6 +1592,7 @@ function PackageModal({
             }}
             playPressSound={playPressSound}
             isVersionTab={isVersionTab}
+            isPluginTab={isPluginTab}
           />
         )}
       </AnimatePresence>
@@ -1462,10 +1604,12 @@ function InstallModal({
   pkg,
   onClose,
   playPressSound,
+  isPluginTab,
 }: {
   pkg: RegistryPackage;
   onClose: () => void;
   playPressSound: () => void;
+  isPluginTab?: boolean;
 }) {
   const game = useContext(GameContext);
   const availableEditions =
@@ -1475,6 +1619,61 @@ function InstallModal({
     "idle" | "installing" | "success" | "error"
   >("idle");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const installPlugin = useCallback(async () => {
+    setStatus("installing");
+    setErrorMsg(null);
+    playPressSound();
+    try {
+      const pluginsDir = await TauriService.getPluginsDir();
+      const pluginDir = `${pluginsDir}/${pkg.id}`;
+
+      await TauriService.createPluginDir(pkg.id);
+
+      const encoder = new TextEncoder();
+
+      const manifest = {
+        id: pkg.id,
+        name: pkg.name,
+        version: pkg.version,
+        author: pkg.author,
+        description: pkg.description,
+        extended_description: pkg.extended_description || "",
+        main: pkg.main || "main.js",
+        permissions: pkg.permissions || [],
+      };
+      await TauriService.writeBinaryFile(
+        `${pluginDir}/plugin.json`,
+        encoder.encode(JSON.stringify(manifest, null, 2)),
+      );
+
+      const pluginBaseUrl = `${RAW_BASE}/.00plugins/${pkg.id}`;
+
+      const allFiles = [pkg.main || "main.js", ...(pkg.files || [])];
+      for (const file of allFiles) {
+        const res = await TauriService.httpProxyRequest("GET", `${pluginBaseUrl}/${file}`, null, {});
+        if (res.status !== 200) throw new Error(`Failed to download ${file}`);
+        await TauriService.writeBinaryFile(
+          `${pluginDir}/${file}`,
+          encoder.encode(res.body),
+        );
+      }
+
+      await PluginManager.instance.reload();
+      setStatus("success");
+    } catch (e: unknown) {
+      console.error(e);
+      setStatus("error");
+      setErrorMsg(e instanceof Error ? e.message : typeof e === "string" ? e : "Unknown error");
+    }
+  }, [pkg, playPressSound]);
+
+  useEffect(() => {
+    if (isPluginTab && status === "idle") {
+      installPlugin();
+    }
+  }, [isPluginTab, status, installPlugin]);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       e.stopPropagation();
@@ -1547,10 +1746,10 @@ function InstallModal({
       >
         <div className="p-6 border-b border-[#555] bg-black/60">
           <span className="text-2xl mc-text-shadow block font-bold tracking-wide">
-            INSTALL CONTENT
+            {isPluginTab ? "INSTALL PLUGIN" : "INSTALL CONTENT"}
           </span>
           <span className="text-sm text-[#A0A0A0] mc-text-shadow uppercase tracking-widest opacity-80 mt-1">
-            Target Edition for "{pkg.name}"
+            {isPluginTab ? `Installing "${pkg.name}"` : `Target Edition for "${pkg.name}"`}
           </span>
         </div>
 
@@ -1561,8 +1760,25 @@ function InstallModal({
                 Installing...
               </span>
               <span className="text-xs text-[#A0A0A0] mc-text-shadow">
-                Downloading and extracting assets
+                {isPluginTab ? "Downloading plugin files" : "Downloading and extracting assets"}
               </span>
+              {isPluginTab && pkg.permissions && pkg.permissions.length > 0 && (
+                <div className="flex flex-col gap-1.5 mt-2 w-full px-4">
+                  <span className="text-[10px] text-[#888] mc-text-shadow uppercase tracking-[0.2em] font-bold text-center">
+                    Requested Permissions
+                  </span>
+                  <div className="flex flex-wrap gap-1.5 justify-center">
+                    {pkg.permissions.map((perm) => (
+                      <span
+                        key={perm}
+                        className="text-[10px] bg-black/60 border border-[#FF8800]/40 px-2 py-0.5 text-[#FFAA33] mc-text-shadow"
+                      >
+                        {perm}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
           {status === "success" && (
@@ -1584,7 +1800,10 @@ function InstallModal({
                 {errorMsg}
               </span>
               <button
-                onClick={() => setStatus("idle")}
+                onClick={() => {
+                  setStatus("idle");
+                  if (isPluginTab) installPlugin();
+                }}
                 className="mt-2 w-32 h-9 flex items-center justify-center text-sm mc-text-shadow text-white cursor-pointer"
                 style={{
                   backgroundImage: "url('/images/Button_Background.png')",
@@ -1597,7 +1816,7 @@ function InstallModal({
             </div>
           )}
 
-          {status === "idle" &&
+          {status === "idle" && !isPluginTab &&
             (availableEditions.length === 0 ? (
               <div className="py-6 flex items-center justify-center">
                 <span className="text-[#FF5555] mc-text-shadow">
@@ -1632,12 +1851,14 @@ function UninstallModal({
   onClose,
   playPressSound,
   isVersionTab,
+  isPluginTab,
 }: {
   pkg: RegistryPackage;
   installedEntries: InstalledWorkshopPackage[];
   onClose: () => void;
   playPressSound: () => void;
   isVersionTab?: boolean;
+  isPluginTab?: boolean;
 }) {
   const { deleteCustomEdition } = useGame();
   const game = useContext(GameContext);
@@ -1650,6 +1871,27 @@ function UninstallModal({
     const ed = game?.editions.find((e) => e.id === instanceId);
     return ed?.name ?? instanceId;
   };
+
+  const uninstallPlugin = useCallback(async () => {
+    setStatus("removing");
+    setErrorMsg(null);
+    playPressSound();
+    try {
+      await TauriService.removePluginDir(pkg.id);
+      await PluginManager.instance.reload();
+      setStatus("success");
+    } catch (e: unknown) {
+      console.error(e);
+      setStatus("error");
+      setErrorMsg(e instanceof Error ? e.message : typeof e === "string" ? e : "Unknown error");
+    }
+  }, [pkg.id, playPressSound]);
+
+  useEffect(() => {
+    if (isPluginTab && status === "idle") {
+      uninstallPlugin();
+    }
+  }, [isPluginTab, status, uninstallPlugin]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -1722,10 +1964,10 @@ function UninstallModal({
       >
         <div className="p-6 border-b border-[#555] bg-black/60">
           <span className="text-2xl mc-text-shadow block font-bold tracking-wide text-[#FF5555]">
-            REMOVE CONTENT
+            {isPluginTab ? "REMOVE PLUGIN" : "REMOVE CONTENT"}
           </span>
           <span className="text-sm text-[#A0A0A0] mc-text-shadow uppercase tracking-widest opacity-80 mt-1">
-            Select edition to remove "{pkg.name}"
+            {isPluginTab ? `Remove "${pkg.name}"` : `Select edition to remove "${pkg.name}"`}
           </span>
         </div>
 
@@ -1759,7 +2001,10 @@ function UninstallModal({
                 {errorMsg}
               </span>
               <button
-                onClick={() => setStatus("idle")}
+                onClick={() => {
+                  setStatus("idle");
+                  if (isPluginTab) uninstallPlugin();
+                }}
                 className="mt-2 w-32 h-9 flex items-center justify-center text-sm mc-text-shadow text-white cursor-pointer"
                 style={{
                   backgroundImage: "url('/images/Button_Background.png')",
@@ -1772,7 +2017,7 @@ function UninstallModal({
             </div>
           )}
 
-          {status === "idle" &&
+          {status === "idle" && !isPluginTab &&
             installedEntries.map((entry, i) => (
               <div
                 key={entry.instanceId}

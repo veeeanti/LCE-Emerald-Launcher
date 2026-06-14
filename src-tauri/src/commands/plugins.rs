@@ -26,3 +26,23 @@ pub fn list_directory(path: String) -> Result<Vec<DirEntry>, String> {
     }
     Ok(results)
 }
+
+#[tauri::command]
+pub fn create_plugin_dir(app: tauri::AppHandle, plugin_id: String) -> Result<String, String> {
+    let dir = crate::util::get_app_dir(&app)
+        .join("plugins")
+        .join(&plugin_id);
+    fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    Ok(dir.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+pub fn remove_plugin_dir(app: tauri::AppHandle, plugin_id: String) -> Result<(), String> {
+    let dir = crate::util::get_app_dir(&app)
+        .join("plugins")
+        .join(&plugin_id);
+    if dir.exists() {
+        fs::remove_dir_all(&dir).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}

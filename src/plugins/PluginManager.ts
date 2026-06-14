@@ -134,6 +134,17 @@ export class PluginManager {
     };
   }
 
+  async reload(): Promise<void> {
+    this._initialized = false;
+    this.hooks.clear();
+    this.views.clear();
+    this.actions.clear();
+    this.plugins.clear();
+    this.enabledMap.clear();
+    this.pluginEvents.clear();
+    await this.init();
+  }
+
   async init(): Promise<void> {
     if (this._initialized) return;
     let pluginsDir: string;

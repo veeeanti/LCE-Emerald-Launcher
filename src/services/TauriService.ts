@@ -336,6 +336,14 @@ export class TauriService {
     return invoke("get_plugins_dir");
   }
 
+  static async createPluginDir(pluginId: string): Promise<string> {
+    return invoke("create_plugin_dir", { pluginId });
+  }
+
+  static async removePluginDir(pluginId: string): Promise<void> {
+    return invoke("remove_plugin_dir", { pluginId });
+  }
+
   static async listDirectory(path: string): Promise<Array<{ name: string; is_dir: boolean }>> {
     return invoke("list_directory", { path });
   }
