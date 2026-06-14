@@ -804,7 +804,7 @@ const SettingsView = memo(function SettingsView() {
                     data-index={index}
                     onMouseEnter={() => setFocusIndex(index)}
                     className={`w-[600px] flex items-center gap-3 px-4 py-3 cursor-pointer outline-none border-none ${
-                      isFocused ? "text-[#ffff00]" : "text-[#333333]"
+                      isFocused ? "text-[#ffff00]" : "text-[#FFFFFF]"
                     }`}
                     style={{
                       backgroundImage: "url('/images/Button_Background2.png')",
