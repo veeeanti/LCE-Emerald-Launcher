@@ -170,9 +170,9 @@ export function useGameManager({
           ? `https://api.github.com/repos/${owner}/${repo}`
           : `${urlObj.origin}/api/v1/repos/${owner}/${repo}`;
 
-        const response = await fetch(`${apiBase}/releases`);
-        if (response.ok) {
-          const data = await response.json();
+        const res = await TauriService.httpProxyRequest("GET", `${apiBase}/releases`, null, {});
+        if (res.status >= 200 && res.status < 300) {
+          const data = JSON.parse(res.body);
           let tags: string[] = data
             .map((r: { tag_name: string }) => r.tag_name)
             .filter((t: string) => !t.toLowerCase().includes("server"));

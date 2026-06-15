@@ -242,6 +242,9 @@ pub async fn check_game_update(
     let instance_dir = util::get_instance_working_dir(&app, &instance_id);
     let timestamp_file = instance_dir.join("update_timestamp.txt");
     let local_timestamp = fs::read_to_string(&timestamp_file).unwrap_or_default();
+    if url.is_empty() {
+        return Ok(false);
+    }
     if local_timestamp.is_empty() {
         return Ok(true);
     }
