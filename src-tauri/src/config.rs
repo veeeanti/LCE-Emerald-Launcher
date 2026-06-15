@@ -21,6 +21,7 @@ pub fn load_config_raw(app: AppHandle) -> AppConfig {
         theme_palette_id: None,
         apple_silicon_performance_boost: None,
         custom_editions: None,
+        customizations: None,
         profile: Some("legacy_evolved".into()),
         animations_enabled: Some(true),
         vfx_enabled: Some(true),

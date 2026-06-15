@@ -27,6 +27,13 @@ pub struct CustomEdition {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
+pub struct CustomizationEntry {
+    pub title_image: Option<String>,
+    pub panorama: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
 pub struct AppConfig {
     pub username: String,
     pub linux_runner: Option<String>,
@@ -36,6 +43,7 @@ pub struct AppConfig {
     pub theme_palette_id: Option<String>,
     pub apple_silicon_performance_boost: Option<bool>,
     pub custom_editions: Option<Vec<CustomEdition>>,
+    pub customizations: Option<std::collections::HashMap<String, CustomizationEntry>>,
     pub profile: Option<String>,
     pub animations_enabled: Option<bool>,
     pub vfx_enabled: Option<bool>,
