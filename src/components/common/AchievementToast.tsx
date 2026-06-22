@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAudio } from "../../context/LauncherContext";
 
@@ -18,20 +18,28 @@ export function AchievementToast({
   variant = "error",
 }: AchievementToastProps) {
   const { playSfx } = useAudio();
-
+  const prevMessage = useRef(message);
   useEffect(() => {
-    if (message) {
+    const wasNull = !prevMessage.current;
+    const isNull = !message;
+    prevMessage.current = message;
+    if (message && wasNull) {
       if (variant === "update") {
         playSfx("notification.ogg");
       } else {
         playSfx("in.ogg");
       }
+    }
+
+    if (message) {
       const timer = setTimeout(() => {
         onClose();
       }, 8000);
       return () => {
         clearTimeout(timer);
-        playSfx("out.ogg");
+        if (isNull) {
+          playSfx("out.ogg");
+        }
       };
     }
   }, [message, onClose, variant, playSfx]);
