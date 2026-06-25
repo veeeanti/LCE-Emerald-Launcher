@@ -1147,6 +1147,8 @@ function PackageCard({
 }) {
   const thumbnailUrl = pkg.thumbnail.startsWith("http")
     ? pkg.thumbnail
+    : !pkg.thumbnail
+    ? ""
     : isVersionTab
       ? `${VERSIONS_BASE}/${pkg.id}/${pkg.thumbnail}`
       : `${RAW_BASE}/${pkg.id}/${pkg.thumbnail}`;
@@ -1263,9 +1265,11 @@ function PackageModal({
   const { addCustomEdition } = useGame();
   const thumbnailUrl = pkg.thumbnail.startsWith("http")
     ? pkg.thumbnail
+    : !pkg.thumbnail
+    ? ""
     : isVersionTab
       ? `${VERSIONS_BASE}/${pkg.id}/${pkg.thumbnail}`
-      : isPluginTab || !pkg.thumbnail
+      : !pkg.thumbnail
         ? ""
         : `${RAW_BASE}/${pkg.id}/${pkg.thumbnail}`;
   const [imgError, setImgError] = useState(false);
